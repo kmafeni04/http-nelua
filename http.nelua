@@ -5,57 +5,115 @@ require "os"
 require "libs.socket"
 require "libs.unistd"
 
-local PORT <comptime> = 8080
 local BUFFER_LEN <comptime> = 2048
 local buffer: [BUFFER_LEN]cchar
-local resp: cstring = "HTTP/1.0 200 OK\r\n"
-                   .. "Server: webserver-c\r\n"
-                   .. "Content-type: text/html\r\n\r\n"
-                   .. "<html>hello, world</html>\r\n"
+local resp_404: cstring = "HTTP/1.0 404\r\n"
+                       .. "Server: webserver-nelua\r\n"
+                       .. "Content-type: text/html\r\n\r\n"
+                       .. "<html>404</html>\r\n"
 
-local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
+local http = @record{}
 
-if sock_fd == -1 then
-  C.perror()
-  os.exit(1)
+local http.Response = @record{
+  content: string,
+  status_code: uinteger,
+  content_type: string,
+  response_headers: hashmap(string, string)
+}
+
+local http.Server <forwarddecl> = @record{}
+
+local http.ActionFn = @function(self: http.Server): http.Response
+
+local Route = @record{
+  method: string,
+  action: http.ActionFn
+}
+
+http.Server = @record{
+  port: uinteger,
+  routes: hashmap(string, Route),
+  request_headers: hashmap(string, string)
+}
+
+local function gen_response(resp: http.Response): string
+  if resp.status_code == 0 then
+    resp.status_code = 200
+  end
+  if resp.content_type == "" then
+    resp.content_type = "text/html"
+  end
+  local sb: stringbuilder
+  sb:write("HTTP/1.0 " .. resp.status_code .. "\r\n")
+  sb:write("Server: webserver-nelua\r\n")
+  for k, v in pairs(resp.response_headers) do
+    sb:write(("%s: %s"):format(k, v))
+  end
+  sb:write("Content-type: " .. resp.content_type .. "\r\n\r\n")
+  sb:write(resp.content .. "\r\n")
+
+  return sb:promote()
 end
 
-local host_addr: sockaddr_in
-host_addr.sin_family = AF_INET
-host_addr.sin_port = htons(PORT)
-host_addr.sin_addr.s_addr = htonl(inet_addr("0.0.0.0"))
-
-local host_addr_len: cuint = #sockaddr_in
-
-local bind_ok = bind(sock_fd, (@*sockaddr)(&host_addr), host_addr_len)
-
-if bind_ok ~= 0 then
-  C.perror()
-  os.exit(1)
+function http.Server:get(route: string, action: http.ActionFn)
+  assert(not self.routes:has(route) and self.routes[route].method ~= "GET")
+  self.routes[route] = {
+    method = "GET",
+    action = action
+  }
 end
 
-local client_addr: sockaddr_in
-local client_addr_len: cuint = #sockaddr_in
+function http.Server:serve()
+  local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
 
-local MAX_CONS <const> = 128
+  if sock_fd == -1 then
+    C.perror()
+    os.exit(1)
+  end
 
-local listen_ok = listen(sock_fd, MAX_CONS)
+  local optval: integer = 1
+  local sol_socket = 1
+  local so_reuseaddr = 2
+  setsockopt(sock_fd, sol_socket, so_reuseaddr, &optval, #integer)
 
-if listen_ok ~= 0 then
-  C.perror()
-  os.exit(1)
-end
+  local host_addr: sockaddr_in
+  host_addr.sin_family = AF_INET
+  host_addr.sin_port = htons(self.port)
+  host_addr.sin_addr.s_addr = htonl(inet_addr("0.0.0.0"))
 
-print("listening for connections")
+  local host_addr_len: cuint = #sockaddr_in
 
-while true do
-  local accept_fd = accept(sock_fd, (@*sockaddr)(&host_addr), &host_addr_len)
+  local bind_ok = bind(sock_fd, (@*sockaddr)(&host_addr), host_addr_len)
 
+  if bind_ok ~= 0 then
+    C.perror()
+    os.exit(1)
+  end
+
+
+  local client_addr: sockaddr_in
+  local client_addr_len: cuint = #sockaddr_in
+
+  local MAX_CONS <const> = 128
+
+  local listen_ok = listen(sock_fd, MAX_CONS)
+
+  if listen_ok ~= 0 then
+    C.perror()
+    os.exit(1)
+  end
+
+  print("Waiting on connection")
+  while true do
+    
+    local accept_fd = accept(sock_fd, (@*sockaddr)(&host_addr), &host_addr_len)
     if accept_fd == -1 then
       C.perror()
     end
 
-    print("Connected succesfully")
+    defer
+      close(accept_fd)
+    end
 
     local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
 
@@ -84,13 +142,27 @@ while true do
       end
       i = i + 1
     end
-
-    local written_bytes = write(accept_fd, resp, #resp)
-
-    if written_bytes == -1 then
-      C.perror()
+    self.request_headers = request_headers
+    
+    if self.routes:has(uri) and self.routes[uri].method == method then 
+      local resp = gen_response(self.routes[uri].action(self))
+      local written_bytes = write(accept_fd, (@cstring)(resp), #resp)
+      if written_bytes == -1 then
+        C.perror()
+      end
+    else
+      local written_bytes = write(accept_fd, resp_404, #resp_404)
+      if written_bytes == -1 then
+        C.perror()
+      end
     end
-
-    close(accept_fd)
+  end
 end
 
+function http.new(port: uinteger): http.Server
+  local s: http.Server
+  s.port = port
+  return s
+end
+
+return http
