@@ -1,1 +1,73 @@
+require "C.stdio"
+
+require "os"
+
+require "libs.socket"
+require "libs.unistd"
+
+local PORT <comptime> = 8080
+local buffer_len <comptime> = 2048
+local buffer: [buffer_len]cchar
+local resp: cstring = "HTTP/1.0 200 OK\r\n"
+                   .. "Server: webserver-c\r\n"
+                   .. "Content-type: text/html\r\n\r\n"
+                   .. "<html>hello, world</html>\r\n"
+
+local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
+
+if sock_fd == -1 then
+  C.perror()
+  os.exit(1)
+end
+
+local addr: sockaddr_in
+addr.sin_family = AF_INET
+addr.sin_port = htons(PORT)
+addr.sin_addr.s_addr = htonl(inet_addr("0.0.0.0"))
+
+local addr_len: cuint = #sockaddr_in
+
+local bind_ok = bind(sock_fd, (@*sockaddr)(&addr), addr_len)
+
+if bind_ok ~= 0 then
+  C.perror()
+  os.exit(1)
+end
+
+local listen_ok = listen(sock_fd, 128)
+
+if listen_ok ~= 0 then
+  C.perror()
+  os.exit(1)
+end
+
+print("listening for connections")
+
+while true do
+  local accept_fd = accept(sock_fd, (@*sockaddr)(&addr), &addr_len)
+
+    if accept_fd == -1 then
+      C.perror()
+      os.exit(1)
+    end
+
+    print("Connected succesfully")
+
+
+    local read_bytes = read(accept_fd, &buffer, buffer_len)
+
+    if read_bytes == -1 then
+      C.perror()
+      os.exit(1)
+    end
+
+
+    local written_bytes = write(accept_fd, resp, #resp)
+
+    if written_bytes == -1 then
+      C.perror()
+      os.exit(1)
+    end
+    close(accept_fd)
+end
 
