@@ -6,8 +6,8 @@ require "libs.socket"
 require "libs.unistd"
 
 local PORT <comptime> = 8080
-local buffer_len <comptime> = 2048
-local buffer: [buffer_len]cchar
+local BUFFER_LEN <comptime> = 2048
+local buffer: [BUFFER_LEN]cchar
 local resp: cstring = "HTTP/1.0 200 OK\r\n"
                    .. "Server: webserver-c\r\n"
                    .. "Content-type: text/html\r\n\r\n"
@@ -20,21 +20,26 @@ if sock_fd == -1 then
   os.exit(1)
 end
 
-local addr: sockaddr_in
-addr.sin_family = AF_INET
-addr.sin_port = htons(PORT)
-addr.sin_addr.s_addr = htonl(inet_addr("0.0.0.0"))
+local host_addr: sockaddr_in
+host_addr.sin_family = AF_INET
+host_addr.sin_port = htons(PORT)
+host_addr.sin_addr.s_addr = htonl(inet_addr("0.0.0.0"))
 
-local addr_len: cuint = #sockaddr_in
+local host_addr_len: cuint = #sockaddr_in
 
-local bind_ok = bind(sock_fd, (@*sockaddr)(&addr), addr_len)
+local bind_ok = bind(sock_fd, (@*sockaddr)(&host_addr), host_addr_len)
 
 if bind_ok ~= 0 then
   C.perror()
   os.exit(1)
 end
 
-local listen_ok = listen(sock_fd, 128)
+local client_addr: sockaddr_in
+local client_addr_len: cuint = #sockaddr_in
+
+local MAX_CONS <const> = 128
+
+local listen_ok = listen(sock_fd, MAX_CONS)
 
 if listen_ok ~= 0 then
   C.perror()
@@ -44,30 +49,48 @@ end
 print("listening for connections")
 
 while true do
-  local accept_fd = accept(sock_fd, (@*sockaddr)(&addr), &addr_len)
+  local accept_fd = accept(sock_fd, (@*sockaddr)(&host_addr), &host_addr_len)
 
     if accept_fd == -1 then
       C.perror()
-      os.exit(1)
     end
 
     print("Connected succesfully")
 
-
-    local read_bytes = read(accept_fd, &buffer, buffer_len)
+    local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
 
     if read_bytes == -1 then
       C.perror()
-      os.exit(1)
     end
 
+    local str: string = &buffer
+    local method: string, uri: string, version: string
+    local request_headers: hashmap(string, string)
+    local i = 0
+    for line in str:gmatch("[^\r\n]*\r\n") do
+      if i < 1 then
+        local info_match, info_seq = line:match("(.+) (.+) (.+)")
+        if info_match then
+          method = info_seq[1]
+          uri = info_seq[2]
+          version = info_seq[3]
+          print(method, uri, version)
+        end
+      else
+        local header_match, header_seq = line:match("(.+): (.+)")
+        if header_match then
+          request_headers[header_seq[1]] = header_seq[2]
+        end
+      end
+      i = i + 1
+    end
 
     local written_bytes = write(accept_fd, resp, #resp)
 
     if written_bytes == -1 then
       C.perror()
-      os.exit(1)
     end
+
     close(accept_fd)
 end
 
