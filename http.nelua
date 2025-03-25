@@ -6,12 +6,6 @@ require "io"
 require ".libs.socket"
 require ".libs.unistd"
 
-local BUFFER_LEN <comptime> = 2048
-local buffer: [BUFFER_LEN]cchar
-local resp_404: cstring = "HTTP/1.0 404\r\n"
-                       .. "Server: webserver-nelua\r\n"
-                       .. "Content-type: text/html\r\n\r\n"
-                       .. "<html>404</html>\r\n"
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"
 mime_types["abw"] = "application/x-abiword"
@@ -91,6 +85,80 @@ mime_types["3gp"] = "video/3gpp; audio/3gpp"
 mime_types["3g2"] = "video/3gpp2; audio/3gpp2"
 mime_types["7z"] = "application/x-7z-compressed"
 
+local http_status_codes: hashmap(uinteger, string)
+-- 1xx Informational
+http_status_codes[100] = "Continue"
+http_status_codes[101] = "Switching Protocols"
+http_status_codes[102] = "Processing"
+http_status_codes[103] = "Early Hints"
+
+-- 2xx Successful
+http_status_codes[200] = "OK"
+http_status_codes[201] = "Created"
+http_status_codes[202] = "Accepted"
+http_status_codes[203] = "Non-Authoritative Information"
+http_status_codes[204] = "No Content"
+http_status_codes[205] = "Reset Content"
+http_status_codes[206] = "Partial Content"
+http_status_codes[207] = "Multi-Status"
+http_status_codes[208] = "Already Reported"
+http_status_codes[226] = "IM Used"
+
+-- 3xx Redirection
+http_status_codes[300] = "Multiple Choices"
+http_status_codes[301] = "Moved Permanently"
+http_status_codes[302] = "Found (Previously Moved Temporarily)"
+http_status_codes[303] = "See Other"
+http_status_codes[304] = "Not Modified"
+http_status_codes[305] = "Use Proxy"
+http_status_codes[306] = "Switch Proxy"
+http_status_codes[307] = "Temporary Redirect"
+http_status_codes[308] = "Permanent Redirect"
+
+-- 4xx Client Error
+http_status_codes[400] = "Bad Request"
+http_status_codes[401] = "Unauthorized"
+http_status_codes[402] = "Payment Required"
+http_status_codes[403] = "Forbidden"
+http_status_codes[404] = "Not Found"
+http_status_codes[405] = "Method Not Allowed"
+http_status_codes[406] = "Not Acceptable"
+http_status_codes[407] = "Proxy Authentication Required"
+http_status_codes[408] = "Request Timeout"
+http_status_codes[409] = "Conflict"
+http_status_codes[410] = "Gone"
+http_status_codes[411] = "Length Required"
+http_status_codes[412] = "Precondition Failed"
+http_status_codes[413] = "Payload Too Large"
+http_status_codes[414] = "URI Too Long"
+http_status_codes[415] = "Unsupported Media Type"
+http_status_codes[416] = "Range Not Satisfiable"
+http_status_codes[417] = "Expectation Failed"
+http_status_codes[418] = "I'm a Teapot"
+http_status_codes[421] = "Misdirected Request"
+http_status_codes[422] = "Unprocessable Entity"
+http_status_codes[423] = "Locked"
+http_status_codes[424] = "Failed Dependency"
+http_status_codes[425] = "Too Early"
+http_status_codes[426] = "Upgrade Required"
+http_status_codes[428] = "Precondition Required"
+http_status_codes[429] = "Too Many Requests"
+http_status_codes[431] = "Request Header Fields Too Large"
+http_status_codes[451] = "Unavailable For Legal Reasons"
+
+-- 5xx Server Error
+http_status_codes[500] = "Internal Server Error"
+http_status_codes[501] = "Not Implemented"
+http_status_codes[502] = "Bad Gateway"
+http_status_codes[503] = "Service Unavailable"
+http_status_codes[504] = "Gateway Timeout"
+http_status_codes[505] = "HTTP Version Not Supported"
+http_status_codes[506] = "Variant Also Negotiates"
+http_status_codes[507] = "Insufficient Storage"
+http_status_codes[508] = "Loop Detected"
+http_status_codes[510] = "Not Extended"
+http_status_codes[511] = "Network Authentication Required"
+
 local http = @record{}
 
 local http.Response = @record{
@@ -102,11 +170,10 @@ local http.Response = @record{
 
 local http.Server <forwarddecl> = @record{}
 
-local http.ActionFn = @function(self: http.Server): http.Response
+local http.ActionFn = @function(self: *http.Server): http.Response
 
 local Route = @record{
-  method: string,
-  action: http.ActionFn
+  methods: hashmap(string, http.ActionFn)
 }
 
 http.Server = @record{
@@ -119,34 +186,117 @@ http.Server = @record{
   }
 }
 
+function http.unescape(s: string): string
+  s = s:gsub("%%20", " ")
+  s = s:gsub("%+", " ")
+  s = s:gsub("%%3C", "<")
+  s = s:gsub("%%3E", ">")
+  s = s:gsub("%%23", "#")
+  s = s:gsub("%%25", "%")
+  s = s:gsub("%%2B", "+")
+  s = s:gsub("%%7B", "{")
+  s = s:gsub("%%7D", "}")
+  s = s:gsub("%%7C", "|")
+  s = s:gsub("%%5C", "\\")
+  s = s:gsub("%%5E", "^")
+  s = s:gsub("%%7E", "~")
+  s = s:gsub("%%5B", "[")
+  s = s:gsub("%%5D", "]")
+  s = s:gsub("%%60", "‘")
+  s = s:gsub("%%3B", ";")
+  s = s:gsub("%%2F", "/")
+  s = s:gsub("%%3F", "?")
+  s = s:gsub("%%3A", ":")
+  s = s:gsub("%%40", "@")
+  s = s:gsub("%%3D", "=")
+  s = s:gsub("%%26", "&")
+  s = s:gsub("%%24", "$")
+  return s
+end
+
+function http.escape(s: string): string
+  s = s:gsub(" ", "+")
+  s = s:gsub("<", "%3C")
+  s = s:gsub(">", "%3E")
+  s = s:gsub("#", "%23")
+  s = s:gsub("%", "%25")
+  s = s:gsub("+", "%2B")
+  s = s:gsub("{", "%7B")
+  s = s:gsub("}", "%7D")
+  s = s:gsub("|", "%7C")
+  s = s:gsub("\\", "%5C")
+  s = s:gsub("^", "%5E")
+  s = s:gsub("~", "%7E")
+  s = s:gsub("[", "%5B")
+  s = s:gsub("]", "%5D")
+  s = s:gsub("‘", "%60")
+  s = s:gsub(";", "%3B")
+  s = s:gsub("/", "%2F")
+  s = s:gsub("?", "%3F")
+  s = s:gsub(":", "%3A")
+  s = s:gsub("@", "%40")
+  s = s:gsub("=", "%3D")
+  s = s:gsub("&", "%26")
+  s = s:gsub("$", "%24")
+  return s
+end
+
+
 local function gen_response(resp: http.Response): string
-  if resp.status == 0 then
+  local status_msg: string
+  if http_status_codes:has(resp.status) then
+    status_msg = http_status_codes[resp.status]
+  else
     resp.status = 200
+    status_msg = "OK"
   end
   if resp.content_type == "" then
     resp.content_type = "text/html"
   end
+  local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local sb: stringbuilder
-  sb:write("HTTP/1.0 " .. resp.status.. "\r\n")
-  sb:write("Server: webserver-nelua\r\n")
+  sb:write(("HTTP/1.0 %s %s\r\n"):format(resp.status, status_msg))
+  sb:write("Server: http-nelua\r\n")
+  sb:write(("Date: %s\r\n"):format(formatted_date))
   for k, v in pairs(resp.headers) do
     sb:write(("%s: %s"):format(k, v))
   end
-  sb:write("Content-type: " .. resp.content_type .. "\r\n\r\n")
-  sb:write(resp.content .. "\r\n")
+  sb:write(("Content-type: %s\r\n"):format(resp.content_type))
+  sb:write(("Content-Length: %d\r\n\r\n"):format(#resp.content + 2))
+  sb:write(("%s\r\n"):format(resp.content))
 
   return sb:promote()
 end
 
 function http.Server:get(route: string, action: http.ActionFn)
-  assert(not self.routes:has(route) and self.routes[route].method ~= "GET")
-  self.routes[route] = {
-    method = "GET",
-    action = action
-  }
+  assert(not self.routes:has(route) or not self.routes[route].methods:has("GET"))
+  self.routes[route].methods["GET"] = action
+end
+
+function http.Server:post(route: string, action: http.ActionFn)
+  assert(not self.routes:has(route) or not self.routes[route].methods:has("POST"))
+  self.routes[route].methods["POST"] = action
+end
+
+function http.Server:delete(route: string, action: http.ActionFn)
+  assert(not self.routes:has(route) or not self.routes[route].methods:has("DELETE"))
+  self.routes[route].methods["DELETE"] = action
+end
+
+function http.Server:put(route: string, action: http.ActionFn)
+  assert(not self.routes:has(route) or not self.routes[route].methods:has("PUT"))
+  self.routes[route].methods["PUT"] = action
+end
+
+function http.Server:patch(route: string, action: http.ActionFn)
+  assert(not self.routes:has(route) or not self.routes[route].methods:has("PATCH"))
+  self.routes[route].methods["PATCH"] = action
 end
 
 function http.Server:serve()
+  local BUFFER_LEN <comptime> = 2048
+  local buffer: [BUFFER_LEN]cchar
+
   local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
 
   if sock_fd == -1 then
@@ -218,7 +368,7 @@ function http.Server:serve()
           print(method, uri, version)
         end
       else
-        local header_match, header_seq = line:match("(.+): (.+)")
+        local header_match, header_seq = line:match("(.+): ([^\r\n]+)")
         if header_match then
           request_headers[header_seq[1]] = header_seq[2]
         end
@@ -226,12 +376,38 @@ function http.Server:serve()
       i = i + 1
     end
     self.req.headers = request_headers
+    -- query params
+    local param_match, param_seq = uri:match("(/.*)?(.*)")
+    if param_match then
+      uri = param_seq[1]
+      for _, params in param_seq[2]:gmatch("([^&]*)&") do
+        for _, param in params[0]:gmatch("(.*)=(.*)") do
+          self.req.params[param[0]] = http.unescape(param[1])
+        end
+      end
+    end
+    -- request body params
+    if request_headers:has("Content-Type") and request_headers["Content-Type"] == "application/x-www-form-urlencoded" then
+      local param_match, param_seq = str:match("\r\n\r\n(.+)")
+      if param_match then
+        local param_str = param_seq[1] .. "&"
+        for _, params in param_str:gmatch("([^&]*)&") do
+          for _, param in params[0]:gmatch("(.*)=(.*)") do
+            self.req.params[param[0]] = http.unescape(param[1])
+          end
+        end
+      end
+    end
     if self.static_dir == "" then
       self.static_dir = "./static"
     end
     local resp: string
-    if self.routes:has(uri) and self.routes[uri].method == method then 
-      resp = gen_response(self.routes[uri].action(self))
+    local resp_404 = gen_response{
+      content = "<html><h1>404</h1><p>Page or resource not found</p></html>\r\n",
+      status = 404
+    }
+    if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
+      resp = gen_response(self.routes[uri].methods[method](self))
     elseif uri:match(self.static_dir:sub(2) .. ".*") then
       local static_file = io.open("." .. uri)
       local ext_match, ext_seq = uri:match("^.+%.(.+)$") 

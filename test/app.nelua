@@ -4,11 +4,34 @@ local app = http.new(8080)
 
 app.static_dir = "./static"
 
-app:get("/", function(self: http.Server)
-  return (@http.Response)({content = [[
-    <link rel="stylesheet" href="/static/test.css"></link>
-    <img src="/static/test.png"/>
-  ]]})
+app:get("/", function(self: *http.Server)
+  return (@http.Response)({content = ([[
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>HTML Forms</h2>
+
+<form action="/test" method="post">
+  <label for="fname">First name:</label><br>
+  <input type="text" id="fname" name="fname" value="John"><br>
+  <label for="lname">Last name:</label><br>
+  <input type="text" id="lname" name="lname" value="Doe"><br><br>
+  <input type="submit" value="Submit">
+</form> 
+
+<h1>%s</h1>
+
+<p>If you click the "Submit" button, the form-data will be sent to a page called "/action_page.php".</p>
+
+</body>
+</html>]]):format(self.req.params["fname"])})
+end)
+
+app:post("/test", function(self: *http.Server)
+  return (@http.Response)({
+    content = self.req.params["lname"]
+  })
 end)
 
 app:serve()
