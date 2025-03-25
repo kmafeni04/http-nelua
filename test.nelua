@@ -1,9 +1,0 @@
-local http = require "http"
-
-local app = http.new(8080)
-
-app:get("/", function(self: http.Server)
-  return (@http.Response)({content = "hello"})
-end)
-
-app:serve()

@@ -1,9 +1,10 @@
 require "C.stdio"
 
 require "os"
+require "io"
 
-require "libs.socket"
-require "libs.unistd"
+require ".libs.socket"
+require ".libs.unistd"
 
 local BUFFER_LEN <comptime> = 2048
 local buffer: [BUFFER_LEN]cchar
@@ -11,14 +12,92 @@ local resp_404: cstring = "HTTP/1.0 404\r\n"
                        .. "Server: webserver-nelua\r\n"
                        .. "Content-type: text/html\r\n\r\n"
                        .. "<html>404</html>\r\n"
+local mime_types: hashmap(string, string)
+mime_types["aac"] = "audio/aac"
+mime_types["abw"] = "application/x-abiword"
+mime_types["apng"] = "image/apng"
+mime_types["arc"] = "application/x-freearc"
+mime_types["avif"] = "image/avif"
+mime_types["avi"] = "video/x-msvideo"
+mime_types["azw"] = "application/vnd.amazon.ebook"
+mime_types["bin"] = "application/octet-stream"
+mime_types["bmp"] = "image/bmp"
+mime_types["bz"] = "application/x-bzip"
+mime_types["bz2"] = "application/x-bzip2"
+mime_types["cda"] = "application/x-cdf"
+mime_types["csh"] = "application/x-csh"
+mime_types["css"] = "text/css"
+mime_types["csv"] = "text/csv"
+mime_types["doc"] = "application/msword"
+mime_types["docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+mime_types["eot"] = "application/vnd.ms-fontobject"
+mime_types["epub"] = "application/epub+zip"
+mime_types["gz"] = "application/gzip"
+mime_types["gif"] = "image/gif"
+mime_types["htm"] = "text/html"
+mime_types["html"] = "text/html"
+mime_types["ico"] = "image/vnd.microsoft.icon"
+mime_types["ics"] = "text/calendar"
+mime_types["jar"] = "application/java-archive"
+mime_types["jpeg"] = "image/jpeg"
+mime_types["jpg"] = "image/jpeg"
+mime_types["js"] = "text/javascript"
+mime_types["json"] = "application/json"
+mime_types["jsonld"] = "application/ld+json"
+mime_types["mid"] = "audio/midi"
+mime_types["midi"] = "audio/x-midi"
+mime_types["mjs"] = "text/javascript"
+mime_types["mp3"] = "audio/mpeg"
+mime_types["mp4"] = "video/mp4"
+mime_types["mpeg"] = "video/mpeg"
+mime_types["mpkg"] = "application/vnd.apple.installer+xml"
+mime_types["odp"] = "application/vnd.oasis.opendocument.presentation"
+mime_types["ods"] = "application/vnd.oasis.opendocument.spreadsheet"
+mime_types["odt"] = "application/vnd.oasis.opendocument.text"
+mime_types["oga"] = "audio/ogg"
+mime_types["ogv"] = "video/ogg"
+mime_types["ogx"] = "application/ogg"
+mime_types["opus"] = "audio/ogg"
+mime_types["otf"] = "font/otf"
+mime_types["png"] = "image/png"
+mime_types["pdf"] = "application/pdf"
+mime_types["php"] = "application/x-httpd-php"
+mime_types["ppt"] = "application/vnd.ms-powerpoint"
+mime_types["pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+mime_types["rar"] = "application/vnd.rar"
+mime_types["rtf"] = "application/rtf"
+mime_types["sh"] = "application/x-sh"
+mime_types["svg"] = "image/svg+xml"
+mime_types["tar"] = "application/x-tar"
+mime_types["tif"] = "image/tiff"
+mime_types["tiff"] = "image/tiff"
+mime_types["ts"] = "video/mp2t"
+mime_types["ttf"] = "font/ttf"
+mime_types["txt"] = "text/plain"
+mime_types["vsd"] = "application/vnd.visio"
+mime_types["wav"] = "audio/wav"
+mime_types["weba"] = "audio/webm"
+mime_types["webm"] = "video/webm"
+mime_types["webp"] = "image/webp"
+mime_types["woff"] = "font/woff"
+mime_types["woff2"] = "font/woff2"
+mime_types["xhtml"] = "application/xhtml+xml"
+mime_types["xls"] = "application/vnd.ms-excel"
+mime_types["xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+mime_types["xml"] = "application/xml"
+mime_types["xul"] = "application/vnd.mozilla.xul+xml"
+mime_types["zip"] = "application/zip"
+mime_types["3gp"] = "video/3gpp; audio/3gpp"
+mime_types["3g2"] = "video/3gpp2; audio/3gpp2"
+mime_types["7z"] = "application/x-7z-compressed"
 
 local http = @record{}
 
 local http.Response = @record{
   content: string,
-  status_code: uinteger,
+  status: uinteger,
   content_type: string,
-  response_headers: hashmap(string, string)
+  headers: hashmap(string, string)
 }
 
 local http.Server <forwarddecl> = @record{}
@@ -33,20 +112,24 @@ local Route = @record{
 http.Server = @record{
   port: uinteger,
   routes: hashmap(string, Route),
-  request_headers: hashmap(string, string)
+  static_dir: string,
+  req: record{
+    headers: hashmap(string, string),
+    params: hashmap(string, string)
+  }
 }
 
 local function gen_response(resp: http.Response): string
-  if resp.status_code == 0 then
-    resp.status_code = 200
+  if resp.status == 0 then
+    resp.status = 200
   end
   if resp.content_type == "" then
     resp.content_type = "text/html"
   end
   local sb: stringbuilder
-  sb:write("HTTP/1.0 " .. resp.status_code .. "\r\n")
+  sb:write("HTTP/1.0 " .. resp.status.. "\r\n")
   sb:write("Server: webserver-nelua\r\n")
-  for k, v in pairs(resp.response_headers) do
+  for k, v in pairs(resp.headers) do
     sb:write(("%s: %s"):format(k, v))
   end
   sb:write("Content-type: " .. resp.content_type .. "\r\n\r\n")
@@ -142,19 +225,39 @@ function http.Server:serve()
       end
       i = i + 1
     end
-    self.request_headers = request_headers
-    
+    self.req.headers = request_headers
+    if self.static_dir == "" then
+      self.static_dir = "./static"
+    end
+    local resp: string
     if self.routes:has(uri) and self.routes[uri].method == method then 
-      local resp = gen_response(self.routes[uri].action(self))
-      local written_bytes = write(accept_fd, (@cstring)(resp), #resp)
-      if written_bytes == -1 then
-        C.perror()
+      resp = gen_response(self.routes[uri].action(self))
+    elseif uri:match(self.static_dir:sub(2) .. ".*") then
+      local static_file = io.open("." .. uri)
+      local ext_match, ext_seq = uri:match("^.+%.(.+)$") 
+      local ext: string
+      if ext_match then
+        ext = ext_seq[1]
+      end
+      if static_file:isopen() then
+        if mime_types:has(ext) then
+          resp = gen_response({
+            content = static_file:read("a"),
+            content_type = mime_types[ext]
+          })
+        else
+          resp = resp_404
+        end
+        static_file:close()
+      else
+        resp = resp_404
       end
     else
-      local written_bytes = write(accept_fd, resp_404, #resp_404)
-      if written_bytes == -1 then
-        C.perror()
-      end
+      resp = resp_404
+    end
+    local written_bytes = write(accept_fd, (@cstring)(resp), #resp)
+    if written_bytes == -1 then
+      C.perror()
     end
   end
 end

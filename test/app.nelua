@@ -1,0 +1,14 @@
+local http = require "..http"
+
+local app = http.new(8080)
+
+app.static_dir = "./static"
+
+app:get("/", function(self: http.Server)
+  return (@http.Response)({content = [[
+    <link rel="stylesheet" href="/static/test.css"></link>
+    <img src="/static/test.png"/>
+  ]]})
+end)
+
+app:serve()
