@@ -30,7 +30,7 @@ end)
 
 app:post("/test", function(self: *http.Server)
   return (@http.Response)({
-    content = self.req.params["lname"]
+    content = self.req.params["lname"],
   })
 end)
 
