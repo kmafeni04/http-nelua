@@ -1,4 +1,4 @@
--- TODO: Work on URL params 
+-- TODO: Handle * url pattern
 require "C.stdio"
 
 require "os"
@@ -180,6 +180,7 @@ local Route = @record{
 http.Server = @record{
   port: uinteger,
   routes: hashmap(string, Route),
+  var_routes: hashmap(string, Route),
   static_dir: string,
   req: record{
     headers: hashmap(string, string),
@@ -229,7 +230,12 @@ end
 
 function http.Server:get(route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("GET"))
-  self.routes[route].methods["GET"] = action
+  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("GET"))
+  if route:match(":.+") then
+    self.var_routes[route].methods["GET"] = action
+  else
+    self.routes[route].methods["GET"] = action
+  end
 end
 
 function http.Server:post(route: string, action: http.ActionFn)
@@ -295,21 +301,27 @@ function http.Server:serve()
     os.exit(1)
   end
 
-  print("Waiting on connection")
+  print("Server started on http://localhost:" .. self.port)
   while true do
     
     local accept_fd = accept(sock_fd, (@*sockaddr)(&host_addr), &host_addr_len)
     if accept_fd == -1 then
       C.perror()
+      continue
+    end
+
+    defer
+      close(accept_fd)
     end
 
     local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
-
     if read_bytes == -1 then
       C.perror()
+      continue
     end
 
     local str: string = &buffer
+    local code: uinteger
     local method: string, uri: string, version: string
     local request_headers: hashmap(string, string)
     local i = 0
@@ -361,7 +373,6 @@ function http.Server:serve()
       status = 404
     }
     local resp_404_str = resp_404:tostring()
-    local code: uinteger
     if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
       local resp = self.routes[uri].methods[method](self)
       resp_str = resp:tostring()
@@ -390,7 +401,31 @@ function http.Server:serve()
         }
         resp_str = resp:tostring()
         code = resp.status
-        static_file:close()
+      end
+      static_file:close()
+    elseif not self.routes:has(uri) then
+      local err: boolean = true
+      for path, route in pairs(self.var_routes) do
+        local path_to_match = path:gsub(":([^/]+)", "([^/]+)")
+        path_to_match = "^" .. path_to_match .. "$"
+        local uri_match, uri_seq = uri:match(path_to_match)
+        print(uri_match)
+        local name_match, name_seq = path:match(path_to_match)
+        if uri_match then
+          -- url params
+          for i, name in pairs(name_seq) do
+            self.req.params[name:sub(2)] = uri_seq[i]
+          end
+          local resp = route.methods[method](self)
+          resp_str = resp:tostring()
+          code = resp.status
+          err = false
+          break
+        end
+      end
+      if err then
+        resp_str = resp_404_str
+        code = resp_404.status
       end
     else
       resp_str = resp_404_str
@@ -401,8 +436,8 @@ function http.Server:serve()
     local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
     if written_bytes == -1 then
       C.perror()
+      continue
     end
-    close(accept_fd)
   end
 end
 

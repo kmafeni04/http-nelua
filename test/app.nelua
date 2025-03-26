@@ -5,33 +5,26 @@ local app = http.new(8080)
 app.static_dir = "./static"
 
 app:get("/", function(self: *http.Server)
-  return (@http.Response)({content = ([[
-<!DOCTYPE html>
-<html>
-<body>
-
-<h2>HTML Forms</h2>
-
-<form action="/test" method="post">
-  <label for="fname">First name:</label><br>
-  <input type="text" id="fname" name="fname" value="John"><br>
-  <label for="lname">Last name:</label><br>
-  <input type="text" id="lname" name="lname" value="Doe"><br><br>
-  <input type="submit" value="Submit">
-</form> 
-
-<h1>%s</h1>
-
-<p>If you click the "Submit" button, the form-data will be sent to a page called "/action_page.php".</p>
-
-</body>
-</html>]]):format(self.req.params["fname"])})
+  return (@http.Response)({content = "hello"})
 end)
 
-app:post("/test", function(self: *http.Server)
-  return (@http.Response)({
-    content = self.req.params["lname"],
-  })
+app:get("/test/x", function(self: *http.Server)
+  return (@http.Response)({content = "not x"})
+end)
+app:get("/test/x/y", function(self: *http.Server)
+  return (@http.Response)({content = "not xy"})
+end)
+app:get("/test/x/y/z", function(self: *http.Server)
+  return (@http.Response)({content = "not xyz"})
+end)
+app:get("/test/:x", function(self: *http.Server)
+  return (@http.Response)({content = "bye " .. self.req.params["x"]})
+end)
+app:get("/test/:x/:y", function(self: *http.Server)
+  return (@http.Response)({content = "bye " .. self.req.params["x"] .. self.req.params["y"]})
+end)
+app:get("/test/:x/:y/:z", function(self: *http.Server)
+  return (@http.Response)({content = "bye " .. self.req.params["x"] .. self.req.params["y"] .. self.req.params["z"]})
 end)
 
 app:serve()
