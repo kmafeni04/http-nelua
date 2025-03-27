@@ -1,4 +1,3 @@
--- TODO: Handle * url pattern
 -- TODO: Handle sessions
 
 require "C.stdio"
@@ -181,9 +180,9 @@ local Route = @record{
 
 http.Server = @record{
   port: uinteger,
+  static_dir: string,
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
-  static_dir: string,
   named_routes: hashmap(string, string),
   req: record{
     headers: hashmap(string, string),
@@ -248,7 +247,7 @@ function http.Server:get(name: facultative(string), route: string, action: http.
       self.named_routes[name] = route
     end
   ## end
-  if route:match(":.+") then
+  if route:match("[:%*]+.*") then
     self.var_routes[route].methods["GET"] = action
   else
     self.routes[route].methods["GET"] = action
@@ -504,18 +503,23 @@ function http.Server:serve()
         status_code = resp.status
       end
       static_file:close()
-    elseif not self.routes:has(uri) then
+    else
       local err: boolean = true
       for path, route in pairs(self.var_routes) do
-        local path_to_match = path:gsub(":([^/]+)", "([^/]+)")
+        local path_to_match = path:gsub(":([^/]+)", "([^/]+)"):gsub("%*", "(.*)")
         path_to_match = "^" .. path_to_match .. "$"
+        -- print(path_to_match)
         local uri_match, uri_seq = uri:match(path_to_match)
-        print(uri_match)
+        -- print(uri_match)
         local name_match, name_seq = path:match(path_to_match)
         if uri_match then
           -- url params
           for i, name in pairs(name_seq) do
-            self.req.params[name:sub(2)] = uri_seq[i]
+            if name:match("%*") then
+              self.req.params[name] = uri_seq[i]
+            else
+              self.req.params[name:sub(2)] = uri_seq[i]
+            end
           end
           local resp = route.methods[method](self)
           resp_str = resp:tostring()
@@ -528,9 +532,6 @@ function http.Server:serve()
         resp_str = self.handle_404():tostring()
         status_code = self.handle_404().status
       end
-    else
-      resp_str = self.handle_404():tostring()
-      status_code = self.handle_404().status
     end
 
     print(status_code, method, uri, version)

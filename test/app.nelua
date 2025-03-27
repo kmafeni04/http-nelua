@@ -5,16 +5,17 @@ local app = http.new(8080)
 app.static_dir = "./static"
 
 app:get("index", "/", function(self: *http.Server)
-  return self:html(200, "<form action='/test' method='post'><button>Submit</button></form>")
-end)
-
-app:post("test", "/test", function(self: *http.Server)
-  return self:redirect(self:url_for("index"))
+  return self:html(200, "<a href='/test/12'>hello</a>")
 end)
 
 app:get(nil, "/test/:id", function(self: *http.Server)
   local id = self.req.params["id"]
   return self:json(200, ([[{"id": %s}]]):format(id))
+end)
+app:get(nil, "/test/:id/*/x/*", function(self: *http.Server)
+  local id = self.req.params["id"]
+  local splat = self.req.params["*"]
+  return self:json(200, ([[{"id": %s, "splat": "%s"}]]):format(id, splat))
 end)
 
 app:serve()
