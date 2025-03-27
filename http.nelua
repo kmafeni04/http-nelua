@@ -186,8 +186,10 @@ http.Server = @record{
   named_routes: hashmap(string, string),
   req: record{
     headers: hashmap(string, string),
+    current_path: string,
     params: hashmap(string, string)
   },
+  default_route: http.ActionFn,
   handle_404: http.ActionFn
 }
 
@@ -450,6 +452,7 @@ function http.Server:serve()
       i = i + 1
     end
     self.req.headers = request_headers
+    self.req.current_path = uri
     -- query params
     local param_match, param_seq = uri:match("(/.*)?(.*)")
     if param_match then
@@ -492,8 +495,8 @@ function http.Server:serve()
         err = true
       end
       if err then
-        resp_str = self.handle_404():tostring()
-        status_code = self.handle_404().status
+        resp_str = self:default_route():tostring()
+        status_code = self:default_route().status
       else
         local resp: http.Response = {
           content = static_file:read("a"),
@@ -529,8 +532,8 @@ function http.Server:serve()
         end
       end
       if err then
-        resp_str = self.handle_404():tostring()
-        status_code = self.handle_404().status
+        resp_str = self:default_route():tostring()
+        status_code = self:default_route().status
       end
     end
 
@@ -547,6 +550,14 @@ function http.new(port: uinteger): http.Server
   local s: http.Server
   s.port = port
   s.static_dir = "./static"
+  s.default_route = function(self: *http.Server)
+    if self.req.current_path:match("./$") then
+      local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
+      return self:redirect(stripped)
+    else
+      return self:handle_404()
+    end
+  end
   s.handle_404 = function(self: *http.Server)
     return http.Response{
       content = [[
