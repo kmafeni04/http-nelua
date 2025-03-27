@@ -2,17 +2,18 @@ local http = require "..http"
 
 local app = http.new(8080)
 
-app.static_dir = "./static"
+app:set_static("./static", "static")
 
 app:get("index", "/", function(self: *http.Server)
-  return self:html(200, "<a href='/test/12'>hello</a>")
+  return self:html(200, "<link rel='stylesheet' href='/static/app.css'></link><a href='/test/12'>test</a>")
 end)
 
 app:get(nil, "/test/:id", function(self: *http.Server)
   local id = self.req.params["id"]
   return self:json(200, ([[{"id": %s}]]):format(id))
 end)
-app:get(nil, "/test/:id/*/x/*", function(self: *http.Server)
+
+app:get(nil, "/test/:id/*", function(self: *http.Server)
   local id = self.req.params["id"]
   local splat = self.req.params["*"]
   return self:json(200, ([[{"id": %s, "splat": "%s"}]]):format(id, splat))
