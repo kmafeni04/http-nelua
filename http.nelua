@@ -1,4 +1,8 @@
 -- TODO: Handle * url pattern
+-- TODO: Handle sessions
+-- TODO: Handle redirects
+-- TODO: Handle named routes
+
 require "C.stdio"
 
 require "os"
@@ -166,7 +170,7 @@ local http.Response = @record{
   content: string,
   status: uinteger,
   content_type: string,
-  headers: hashmap(string, string)
+  headers: hashmap(string, string),
 }
 
 local http.Server <forwarddecl> = @record{}
@@ -185,22 +189,28 @@ http.Server = @record{
   req: record{
     headers: hashmap(string, string),
     params: hashmap(string, string)
-  }
+  },
+  handle_404: http.ActionFn
 }
 
-function http.escape(s: string)
+local http.Util = @record{}
+
+function http.Util.escape(s: string)
   return (string.gsub(s, "([^A-Za-z0-9_])", function(c: string)
       return string.format("%%%02x", string.byte(c))
   end))
 end
 
-function http.unescape(s: string)
+function http.Util.unescape(s: string)
   s = s:gsub("+", " ")
   return (string.gsub(s, "%%(%x%x)", function(hex: string)
       return string.char(tonumber(hex, 16))
   end))
 end
 
+function http.Util.slugify(s: string)
+ return (s:gsub("[%s_]+", "-"):gsub("[^%w%-]+", ""):gsub("-+", "-")):lower()
+end
 
 function http.Response:tostring(): string
   local status_msg: string
@@ -215,7 +225,7 @@ function http.Response:tostring(): string
   end
   local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local sb: stringbuilder
-  sb:write(("HTTP/1.0 %s %s\r\n"):format(self.status, status_msg))
+  sb:write(("HTTP/1.1 %s %s\r\n"):format(self.status, status_msg))
   sb:write("Server: http-nelua\r\n")
   sb:write(("Date: %s\r\n"):format(formatted_date))
   for k, v in pairs(self.headers) do
@@ -256,6 +266,36 @@ end
 function http.Server:patch(route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("PATCH"))
   self.routes[route].methods["PATCH"] = action
+end
+
+function http.Server:html(code: uinteger, html: string): http.Response
+  return {
+    content = html,
+    status =  code,
+    content_type =  "text/html"
+  }
+end
+
+function http.Server:json(code: uinteger, json: string): http.Response
+  return {
+    content = json,
+    status =  code,
+    content_type =  "text/json"
+  }
+end
+
+function http.Server:text(code: uinteger, text: string): http.Response
+  return {
+    content = text,
+    status =  code,
+    content_type =  "text/plain"
+  }
+end
+
+-- TODO: Finish
+function http.Server:redirect(path: string): http.Response
+  error("UNIMPLEMENTED")
+  return http.Response{}
 end
 
 function http.Server:serve()
@@ -321,7 +361,7 @@ function http.Server:serve()
     end
 
     local str: string = &buffer
-    local code: uinteger
+    local status_code: uinteger
     local method: string, uri: string, version: string
     local request_headers: hashmap(string, string)
     local i = 0
@@ -348,7 +388,7 @@ function http.Server:serve()
       uri = param_seq[1]
       for _, params in param_seq[2]:gmatch("([^&]*)&") do
         for _, param in params[0]:gmatch("(.*)=(.*)") do
-          self.req.params[param[0]] = http.unescape(param[1])
+          self.req.params[param[0]] = http.Util.unescape(param[1])
         end
       end
     end
@@ -359,24 +399,16 @@ function http.Server:serve()
         local param_str = param_seq[1] .. "&"
         for _, params in param_str:gmatch("([^&]*)&") do
           for _, param in params[0]:gmatch("(.*)=(.*)") do
-            self.req.params[param[0]] = http.unescape(param[1])
+            self.req.params[param[0]] = http.Util.unescape(param[1])
           end
         end
       end
     end
-    if self.static_dir == "" then
-      self.static_dir = "./static"
-    end
     local resp_str: string
-    local resp_404: http.Response = {
-      content = "<html><h1>404</h1><p>Page or resource not found</p></html>\r\n",
-      status = 404
-    }
-    local resp_404_str = resp_404:tostring()
     if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
       local resp = self.routes[uri].methods[method](self)
       resp_str = resp:tostring()
-      code = resp.status
+      status_code = resp.status
     elseif uri:match(self.static_dir:sub(2) .. ".*") then
       local ext_match, ext_seq = uri:match("^.+%.(.+)$") 
       local ext: string
@@ -392,15 +424,15 @@ function http.Server:serve()
         err = true
       end
       if err then
-        resp_str = resp_404_str
-        code = resp_404.status
+        resp_str = self.handle_404():tostring()
+        status_code = self.handle_404().status
       else
         local resp: http.Response = {
           content = static_file:read("a"),
           content_type = mime_types[ext],
         }
         resp_str = resp:tostring()
-        code = resp.status
+        status_code = resp.status
       end
       static_file:close()
     elseif not self.routes:has(uri) then
@@ -418,21 +450,21 @@ function http.Server:serve()
           end
           local resp = route.methods[method](self)
           resp_str = resp:tostring()
-          code = resp.status
+          status_code = resp.status
           err = false
           break
         end
       end
       if err then
-        resp_str = resp_404_str
-        code = resp_404.status
+        resp_str = self.handle_404():tostring()
+        status_code = self.handle_404().status
       end
     else
-      resp_str = resp_404_str
-      code = resp_404.status
+      resp_str = self.handle_404():tostring()
+      status_code = self.handle_404().status
     end
 
-    print(code, method, uri, version)
+    print(status_code, method, uri, version)
     local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
     if written_bytes == -1 then
       C.perror()
@@ -444,6 +476,24 @@ end
 function http.new(port: uinteger): http.Server
   local s: http.Server
   s.port = port
+  s.static_dir = "./static"
+  s.handle_404 = function(self: *http.Server)
+    return http.Response{
+      content = [[
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>Page or resource not found</h1>
+  </body>
+</html>]],
+      status = 404,
+    }
+  end
   return s
 end
 
