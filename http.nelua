@@ -1,7 +1,5 @@
 -- TODO: Handle * url pattern
 -- TODO: Handle sessions
--- TODO: Handle redirects
--- TODO: Handle named routes
 
 require "C.stdio"
 
@@ -186,6 +184,7 @@ http.Server = @record{
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
   static_dir: string,
+  named_routes: hashmap(string, string),
   req: record{
     headers: hashmap(string, string),
     params: hashmap(string, string)
@@ -229,7 +228,7 @@ function http.Response:tostring(): string
   sb:write("Server: http-nelua\r\n")
   sb:write(("Date: %s\r\n"):format(formatted_date))
   for k, v in pairs(self.headers) do
-    sb:write(("%s: %s"):format(k, v))
+    sb:write(("%s: %s\r\n"):format(k, v))
   end
   sb:write(("Content-type: %s\r\n"):format(self.content_type))
   sb:write(("Content-Length: %d\r\n\r\n"):format(#self.content + 2))
@@ -238,9 +237,17 @@ function http.Response:tostring(): string
   return sb:promote()
 end
 
-function http.Server:get(route: string, action: http.ActionFn)
+function http.Server:get(name: facultative(string), route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("GET"))
   assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("GET"))
+  ## if not name.type.is_niltype then
+    assert(name ~= "")
+    if self.named_routes:has(name) then
+      assert(self.named_routes[name] == route)
+    else
+      self.named_routes[name] = route
+    end
+  ## end
   if route:match(":.+") then
     self.var_routes[route].methods["GET"] = action
   else
@@ -248,24 +255,83 @@ function http.Server:get(route: string, action: http.ActionFn)
   end
 end
 
-function http.Server:post(route: string, action: http.ActionFn)
+function http.Server:post(name: facultative(string), route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("POST"))
-  self.routes[route].methods["POST"] = action
+  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("POST"))
+  ## if not name.type.is_niltype then
+    assert(name ~= "")
+    if self.named_routes:has(name) then
+      assert(self.named_routes[name] == route)
+    else
+      self.named_routes[name] = route
+    end
+  ## end
+  if route:match(":.+") then
+    self.var_routes[route].methods["POST"] = action
+  else
+    self.routes[route].methods["POST"] = action
+  end
 end
 
-function http.Server:delete(route: string, action: http.ActionFn)
+function http.Server:delete(name: facultative(string), route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("DELETE"))
-  self.routes[route].methods["DELETE"] = action
+  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("DELETE"))
+  ## if not name.type.is_niltype then
+    assert(name ~= "")
+    if self.named_routes:has(name) then
+      assert(self.named_routes[name] == route)
+    else
+      self.named_routes[name] = route
+    end
+  ## end
+  if route:match(":.+") then
+    self.var_routes[route].methods["DELETE"] = action
+  else
+    self.routes[route].methods["DELETE"] = action
+  end
 end
 
-function http.Server:put(route: string, action: http.ActionFn)
+function http.Server:put(name: facultative(string), route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("PUT"))
-  self.routes[route].methods["PUT"] = action
+  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("PUT"))
+  ## if not name.type.is_niltype then
+    assert(name ~= "")
+    if self.named_routes:has(name) then
+      assert(self.named_routes[name] == route)
+    else
+      self.named_routes[name] = route
+    end
+  ## end
+  if route:match(":.+") then
+    self.var_routes[route].methods["PUT"] = action
+  else
+    self.routes[route].methods["PUT"] = action
+  end
 end
 
-function http.Server:patch(route: string, action: http.ActionFn)
+function http.Server:patch(name: facultative(string), route: string, action: http.ActionFn)
   assert(not self.routes:has(route) or not self.routes[route].methods:has("PATCH"))
-  self.routes[route].methods["PATCH"] = action
+  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("PATCH"))
+  ## if not name.type.is_niltype then
+    assert(name ~= "")
+    if self.named_routes:has(name) then
+      assert(self.named_routes[name] == route)
+    else
+      self.named_routes[name] = route
+    end
+  ## end
+  if route:match(":.+") then
+    self.var_routes[route].methods["PATCH"] = action
+  else
+    self.routes[route].methods["PATCH"] = action
+  end
+end
+
+function http.Server:url_for(name: string): string
+  if self.named_routes:has(name) then
+    return self.named_routes[name]
+  end
+  return ""
 end
 
 function http.Server:html(code: uinteger, html: string): http.Response
@@ -280,7 +346,7 @@ function http.Server:json(code: uinteger, json: string): http.Response
   return {
     content = json,
     status =  code,
-    content_type =  "text/json"
+    content_type =  "application/json"
   }
 end
 
@@ -292,10 +358,13 @@ function http.Server:text(code: uinteger, text: string): http.Response
   }
 end
 
--- TODO: Finish
 function http.Server:redirect(path: string): http.Response
-  error("UNIMPLEMENTED")
-  return http.Response{}
+  local headers: hashmap(string, string)
+  headers["Location"] = path
+  return {
+    status = 302,
+    headers = headers
+  }
 end
 
 function http.Server:serve()
