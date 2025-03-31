@@ -300,6 +300,13 @@ local http.Response = @record{
   headers: hashmap(string, string),
 }
 
+function http.Response:destroy()
+  self.content = ""
+  self.status = (@integer)()
+  self.content_type = ""
+  self.headers:destroy()
+end
+
 local http.Server <forwarddecl> = @record{}
 
 local http.ActionFn = @function(self: *http.Server): http.Response
@@ -552,9 +559,16 @@ local function handle_request(self: *http.Server, accept_fd: uinteger)
       end
     end
   end
+  
   local resp_str: string
+  local resp: http.Response
+  defer
+    resp_str:destroy()
+    resp:destroy()
+  end
+
   if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
-    local resp = self.routes[uri].methods[method](self)
+    resp = self.routes[uri].methods[method](self)
     resp_str = resp:tostring()
     status_code = resp.status
   elseif uri:match("^/".. self.static_name .. ".*") then
@@ -576,7 +590,7 @@ local function handle_request(self: *http.Server, accept_fd: uinteger)
       resp_str = self:default_route():tostring()
       status_code = self:default_route().status
     else
-      local resp: http.Response = {
+      resp = {
         status = 200,
         content = static_file:read("a"),
         content_type = mime_types[ext],
@@ -601,7 +615,7 @@ local function handle_request(self: *http.Server, accept_fd: uinteger)
             self.req.params[name:sub(2)] = uri_seq[i]
           end
         end
-        local resp = route.methods[method](self)
+        resp = route.methods[method](self)
         resp_str = resp:tostring()
         status_code = resp.status
         err = false
