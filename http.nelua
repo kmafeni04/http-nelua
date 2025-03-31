@@ -1,9 +1,12 @@
 -- TODO: Handle sessions
+## pragmas.nogc = true
 
 require "C.stdio"
+require "C.threads"
 
 require "os"
 require "io"
+require "hashmap"
 
 require ".libs.socket"
 require ".libs.unistd"
@@ -495,10 +498,130 @@ function http.Server:redirect(path: string): http.Response
   }
 end
 
-function http.Server:serve()
+local function handle_request(self: *http.Server, accept_fd: uinteger)
   local BUFFER_LEN <comptime> = 2048
   local buffer: [BUFFER_LEN]cchar
 
+  local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
+  if read_bytes == -1 then
+    C.perror()
+  end
+
+  local str: string = &buffer
+  local status_code: uinteger
+  local method: string, uri: string, version: string
+  local request_headers: hashmap(string, string)
+  local i = 0
+  for line in str:gmatch("[^\r\n]*\r\n") do
+    if i < 1 then
+      local info_match, info_seq = line:match("(.+) (.+) (.+)")
+      if info_match then
+        method = info_seq[1]
+        uri = info_seq[2]
+        version = info_seq[3]
+      end
+    else
+      local header_match, header_seq = line:match("(.+): ([^\r\n]+)")
+      if header_match then
+        request_headers[header_seq[1]] = header_seq[2]
+      end
+    end
+    i = i + 1
+  end
+  self.req.headers = request_headers
+  self.req.current_path = uri
+  -- query params
+  local param_match, param_seq = uri:match("(/.*)?(.*)")
+  if param_match then
+    uri = param_seq[1]
+    for _, params in param_seq[2]:gmatch("([^&]*)&") do
+      for _, param in params[0]:gmatch("(.*)=(.*)") do
+        self.req.params[param[0]] = http.Util.unescape(param[1])
+      end
+    end
+  end
+  -- request body params
+  if request_headers:has("Content-Type") and request_headers["Content-Type"] == "application/x-www-form-urlencoded" then
+    local param_match, param_seq = str:match("\r\n\r\n(.+)")
+    if param_match then
+      local param_str = param_seq[1] .. "&"
+      for _, params in param_str:gmatch("([^&]*)&") do
+        for _, param in params[0]:gmatch("(.*)=(.*)") do
+          self.req.params[param[0]] = http.Util.unescape(param[1])
+        end
+      end
+    end
+  end
+  local resp_str: string
+  if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
+    local resp = self.routes[uri].methods[method](self)
+    resp_str = resp:tostring()
+    status_code = resp.status
+  elseif uri:match("^/".. self.static_name .. ".*") then
+    local ext_match, ext_seq = uri:match("^.+%.(.+)$") 
+    local ext: string
+    local err: boolean
+    if ext_match then
+      ext = ext_seq[1]
+    end
+    if not mime_types:has(ext:lower()) then
+      err = true
+    end
+    local path = self.static_dir .. uri:sub(#self.static_name + 2)
+    local static_file = io.open(path)
+    if not static_file:isopen() then
+      err = true
+    end
+    if err then
+      resp_str = self:default_route():tostring()
+      status_code = self:default_route().status
+    else
+      local resp: http.Response = {
+        status = 200,
+        content = static_file:read("a"),
+        content_type = mime_types[ext],
+      }
+      resp_str = resp:tostring()
+      status_code = resp.status
+    end
+    static_file:close()
+  else
+    local err: boolean = true
+    for path, route in pairs(self.var_routes) do
+      local path_to_match = path:gsub(":([^/]+)", "([^/]+)"):gsub("%*", "(.*)")
+      path_to_match = "^" .. path_to_match .. "$"
+      local uri_match, uri_seq = uri:match(path_to_match)
+      local name_match, name_seq = path:match(path_to_match)
+      if uri_match then
+        -- url params
+        for i, name in pairs(name_seq) do
+          if name:match("%*") then
+            self.req.params[name] = uri_seq[i]
+          else
+            self.req.params[name:sub(2)] = uri_seq[i]
+          end
+        end
+        local resp = route.methods[method](self)
+        resp_str = resp:tostring()
+        status_code = resp.status
+        err = false
+        break
+      end
+    end
+    if err then
+      resp_str = self:default_route():tostring()
+      status_code = self:default_route().status
+    end
+  end
+
+  print(status_code, method, uri, version)
+  local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
+  if written_bytes == -1 then
+    C.perror()
+  end
+end
+
+function http.Server:serve()
   local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
 
   if sock_fd == -1 then
@@ -551,128 +674,7 @@ function http.Server:serve()
       close(accept_fd)
     end
 
-    local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
-    if read_bytes == -1 then
-      C.perror()
-      continue
-    end
-
-    local str: string = &buffer
-    local status_code: uinteger
-    local method: string, uri: string, version: string
-    local request_headers: hashmap(string, string)
-    local i = 0
-    for line in str:gmatch("[^\r\n]*\r\n") do
-      if i < 1 then
-        local info_match, info_seq = line:match("(.+) (.+) (.+)")
-        if info_match then
-          method = info_seq[1]
-          uri = info_seq[2]
-          version = info_seq[3]
-        end
-      else
-        local header_match, header_seq = line:match("(.+): ([^\r\n]+)")
-        if header_match then
-          request_headers[header_seq[1]] = header_seq[2]
-        end
-      end
-      i = i + 1
-    end
-    self.req.headers = request_headers
-    self.req.current_path = uri
-    -- query params
-    local param_match, param_seq = uri:match("(/.*)?(.*)")
-    if param_match then
-      uri = param_seq[1]
-      for _, params in param_seq[2]:gmatch("([^&]*)&") do
-        for _, param in params[0]:gmatch("(.*)=(.*)") do
-          self.req.params[param[0]] = http.Util.unescape(param[1])
-        end
-      end
-    end
-    -- request body params
-    if request_headers:has("Content-Type") and request_headers["Content-Type"] == "application/x-www-form-urlencoded" then
-      local param_match, param_seq = str:match("\r\n\r\n(.+)")
-      if param_match then
-        local param_str = param_seq[1] .. "&"
-        for _, params in param_str:gmatch("([^&]*)&") do
-          for _, param in params[0]:gmatch("(.*)=(.*)") do
-            self.req.params[param[0]] = http.Util.unescape(param[1])
-          end
-        end
-      end
-    end
-    local resp_str: string
-    if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
-      local resp = self.routes[uri].methods[method](self)
-      resp_str = resp:tostring()
-      status_code = resp.status
-    elseif uri:match("^/".. self.static_name .. ".*") then
-      local ext_match, ext_seq = uri:match("^.+%.(.+)$") 
-      local ext: string
-      local err: boolean
-      if ext_match then
-        ext = ext_seq[1]
-      end
-      if not mime_types:has(ext:lower()) then
-        err = true
-      end
-      local path = self.static_dir .. uri:sub(#self.static_name + 2)
-      print(path)
-      local static_file = io.open(path)
-      if not static_file:isopen() then
-        err = true
-      end
-      if err then
-        resp_str = self:default_route():tostring()
-        status_code = self:default_route().status
-      else
-        local resp: http.Response = {
-          status = 200,
-          content = static_file:read("a"),
-          content_type = mime_types[ext],
-        }
-        resp_str = resp:tostring()
-        status_code = resp.status
-      end
-      static_file:close()
-    else
-      local err: boolean = true
-      for path, route in pairs(self.var_routes) do
-        local path_to_match = path:gsub(":([^/]+)", "([^/]+)"):gsub("%*", "(.*)")
-        path_to_match = "^" .. path_to_match .. "$"
-        -- print(path_to_match)
-        local uri_match, uri_seq = uri:match(path_to_match)
-        -- print(uri_match)
-        local name_match, name_seq = path:match(path_to_match)
-        if uri_match then
-          -- url params
-          for i, name in pairs(name_seq) do
-            if name:match("%*") then
-              self.req.params[name] = uri_seq[i]
-            else
-              self.req.params[name:sub(2)] = uri_seq[i]
-            end
-          end
-          local resp = route.methods[method](self)
-          resp_str = resp:tostring()
-          status_code = resp.status
-          err = false
-          break
-        end
-      end
-      if err then
-        resp_str = self:default_route():tostring()
-        status_code = self:default_route().status
-      end
-    end
-
-    print(status_code, method, uri, version)
-    local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
-    if written_bytes == -1 then
-      C.perror()
-      continue
-    end
+    handle_request(self, accept_fd)
   end
 end
 
