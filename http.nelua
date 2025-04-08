@@ -10,6 +10,7 @@ require "hashmap"
 
 require ".libs.socket"
 require ".libs.unistd"
+require ".libs.threadpool"
 
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"
@@ -321,6 +322,7 @@ http.Server = @record{
   static_name: string,
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
+  thread_count: uinteger,
   named_routes: hashmap(string, string),
   req: record{
     headers: hashmap(string, string),
@@ -505,7 +507,15 @@ function http.Server:redirect(path: string): http.Response
   }
 end
 
-local function handle_request(self: *http.Server, accept_fd: uinteger)
+local ConnInfo = @record{
+  server: *http.Server,
+  fd: uinteger 
+}
+
+local function handle_request(arg: *void)
+  local conn_info = $((@*ConnInfo)(arg))
+  local self: *http.Server = conn_info.server
+  local accept_fd: uinteger = conn_info.fd
   local BUFFER_LEN <comptime> = 2048
   local buffer: [BUFFER_LEN]cchar
 
@@ -525,7 +535,7 @@ local function handle_request(self: *http.Server, accept_fd: uinteger)
       if info_match then
         method = info_seq[1]
         uri = info_seq[2]
-        version = info_seq[3]
+        version = info_seq[3]:sub(1, #info_seq[3] - 2)
       end
     else
       local header_match, header_seq = line:match("(.+): ([^\r\n]+)")
@@ -628,12 +638,16 @@ local function handle_request(self: *http.Server, accept_fd: uinteger)
     end
   end
 
-  print(status_code, method, uri, version)
+  if method ~= "" then
+    print(("[%s] %s %s %s"):format(status_code, method, uri, version))
+  end
   local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
   if written_bytes == -1 then
     C.perror()
   end
+  close(accept_fd)
 end
+
 
 function http.Server:serve()
   local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
@@ -662,7 +676,6 @@ function http.Server:serve()
     os.exit(1)
   end
 
-
   local client_addr: sockaddr_in
   local client_addr_len: cuint = #sockaddr_in
 
@@ -676,27 +689,33 @@ function http.Server:serve()
   end
 
   print("Server started on http://localhost:" .. self.port)
+
+  local pool: ThreadPool
+  threadpool_init(&pool, self.thread_count, MAX_CONS)
   while true do
     
-    local accept_fd = accept(sock_fd, (@*sockaddr)(&host_addr), &host_addr_len)
+    local accept_fd = accept(sock_fd, (@*sockaddr)(&client_addr), &client_addr_len)
     if accept_fd == -1 then
       C.perror()
       continue
     end
 
-    defer
-      close(accept_fd)
-    end
+    local conn_info = new(ConnInfo)
+    conn_info.server = self
+    conn_info.fd = accept_fd
 
-    handle_request(self, accept_fd)
+    threadpool_enqueue(&pool, handle_request, conn_info)
   end
+  -- threadpool_shutdown(&pool)
+  -- close(sock_fd)
 end
 
-function http.new(port: uinteger): http.Server
+function http.new(port: uinteger, thread_count: uinteger): http.Server
   local s: http.Server
   s.port = port
   s.static_dir = "./static"
   s.static_name = "static"
+  s.thread_count = thread_count == 0 and 2 or thread_count
   s.default_route = function(self: *http.Server)
     if self.req.current_path:match("./$") then
       local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
