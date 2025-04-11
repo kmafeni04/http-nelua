@@ -1,6 +1,6 @@
-local http = require "..http"
+local http = require "...http"
 
-local app = http.new(8080)
+local app = http.new()
 
 app:set_static("./static", "static")
 

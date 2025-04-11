@@ -316,13 +316,21 @@ local Route = @record{
   methods: hashmap(string, http.ActionFn)
 }
 
-http.Server = @record{
+local http.Config = @record{
   port: uinteger,
+  threads: uinteger,
+  bind_host: string,
+  secret: string,
+  session_name: string,
+  logging: string
+}
+
+http.Server = @record{
+  config: http.Config,
   static_dir: string,
   static_name: string,
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
-  thread_count: uinteger,
   named_routes: hashmap(string, string),
   req: record{
     headers: hashmap(string, string),
@@ -507,29 +515,12 @@ function http.Server:redirect(path: string): http.Response
   }
 end
 
-local ConnInfo = @record{
-  server: *http.Server,
-  fd: uinteger 
-}
-
-local function handle_request(arg: *void)
-  local conn_info = $((@*ConnInfo)(arg))
-  local self: *http.Server = conn_info.server
-  local accept_fd: uinteger = conn_info.fd
-  local BUFFER_LEN <comptime> = 2048
-  local buffer: [BUFFER_LEN]cchar
-
-  local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
-  if read_bytes == -1 then
-    C.perror()
-  end
-
-  local str: string = &buffer
+function http.handle_request(buffer_str: string, self: *http.Server)
   local status_code: uinteger
   local method: string, uri: string, version: string
   local request_headers: hashmap(string, string)
   local i = 0
-  for line in str:gmatch("[^\r\n]*\r\n") do
+  for line in buffer_str:gmatch("[^\r\n]*\r\n") do
     if i < 1 then
       local info_match, info_seq = line:match("(.+) (.+) (.+)")
       if info_match then
@@ -551,15 +542,13 @@ local function handle_request(arg: *void)
   local param_match, param_seq = uri:match("(/.*)?(.*)")
   if param_match then
     uri = param_seq[1]
-    for _, params in param_seq[2]:gmatch("([^&]*)&") do
-      for _, param in params[0]:gmatch("(.*)=(.*)") do
-        self.req.params[param[0]] = http.Util.unescape(param[1])
-      end
+    for _, param in param_seq[2]:gmatch("([^&=?]+)=([^&=?]+)") do
+      self.req.params[param[0]] = http.Util.unescape(param[1])
     end
   end
   -- request body params
   if request_headers:has("Content-Type") and request_headers["Content-Type"] == "application/x-www-form-urlencoded" then
-    local param_match, param_seq = str:match("\r\n\r\n(.+)")
+    local param_match, param_seq = buffer_str:match("\r\n\r\n(.+)")
     if param_match then
       local param_str = param_seq[1] .. "&"
       for _, params in param_str:gmatch("([^&]*)&") do
@@ -573,7 +562,6 @@ local function handle_request(arg: *void)
   local resp_str: string
   local resp: http.Response
   defer
-    resp_str:destroy()
     resp:destroy()
   end
 
@@ -638,14 +626,42 @@ local function handle_request(arg: *void)
     end
   end
 
-  if method ~= "" then
+  if method ~= "" and self.config.logging == "on" then
     print(("[%s] %s %s %s"):format(status_code, method, uri, version))
   end
+  return resp_str
+end
+
+local ConnInfo = @record{
+  server: *http.Server,
+  fd: uinteger 
+}
+
+local function handle_client(arg: *void)
+  local conn_info = $((@*ConnInfo)(arg))
+  local self: *http.Server = conn_info.server
+  local accept_fd: uinteger = conn_info.fd
+  local BUFFER_LEN <comptime> = 2048
+  local buffer: [BUFFER_LEN]cchar
+
+  defer
+    close(accept_fd)
+  end
+
+  local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
+  if read_bytes == -1 then
+    C.perror()
+  end
+
+  local str: string = &buffer
+
+  local resp_str = http.handle_request(str, self)
+
   local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
   if written_bytes == -1 then
     C.perror()
   end
-  close(accept_fd)
+  resp_str:destroy()
 end
 
 
@@ -664,8 +680,8 @@ function http.Server:serve()
 
   local host_addr: sockaddr_in
   host_addr.sin_family = AF_INET
-  host_addr.sin_port = htons(self.port)
-  host_addr.sin_addr.s_addr = htonl(inet_addr("0.0.0.0"))
+  host_addr.sin_port = htons(self.config.port)
+  host_addr.sin_addr.s_addr = htonl(inet_addr(self.config.bind_host))
 
   local host_addr_len: cuint = #sockaddr_in
 
@@ -688,10 +704,10 @@ function http.Server:serve()
     os.exit(1)
   end
 
-  print("Server started on http://localhost:" .. self.port)
+  print("Server started on http://localhost:" .. self.config.port)
 
   local pool: ThreadPool
-  threadpool_init(&pool, self.thread_count, MAX_CONS)
+  threadpool_init(&pool, self.config.threads, MAX_CONS)
   while true do
     
     local accept_fd = accept(sock_fd, (@*sockaddr)(&client_addr), &client_addr_len)
@@ -704,18 +720,23 @@ function http.Server:serve()
     conn_info.server = self
     conn_info.fd = accept_fd
 
-    threadpool_enqueue(&pool, handle_request, conn_info)
+    threadpool_enqueue(&pool, handle_client, conn_info)
   end
   -- threadpool_shutdown(&pool)
   -- close(sock_fd)
 end
 
-function http.new(port: uinteger, thread_count: uinteger): http.Server
+function http.new(config: http.Config): http.Server
+  config.port = config.port == 0 and 8080 or config.port
+  config.threads = config.threads == 0 and 2 or config.threads
+  config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
+  config.session_name = config.session_name == "" and "http_session" or config.session_name
+  config.secret = config.secret == "" and "please-change-me" or config.secret
+  config.logging = config.logging == "" and "on" or config.logging
   local s: http.Server
-  s.port = port
+  s.config = config
   s.static_dir = "./static"
   s.static_name = "static"
-  s.thread_count = thread_count == 0 and 2 or thread_count
   s.default_route = function(self: *http.Server)
     if self.req.current_path:match("./$") then
       local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)

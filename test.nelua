@@ -1,0 +1,74 @@
+require "sequence"
+require "os"
+require "io"
+
+require "libs.ansicolor"
+
+##[[
+  local lfs = require "lfs"
+
+  local function get_files()
+    local parent_dir, err = lfs.currentdir()
+    assert(parent_dir, ("ERROR: %s"):format(err))
+
+    local changed_dir, err = lfs.chdir("tests")
+    assert(changed_dir, ("ERROR: %s"):format(err))
+    
+    local current_dir, err = lfs.currentdir()
+    assert(current_dir, ("ERROR: %s"):format(err))
+
+
+    local function loop_dir(dir, files)
+      for file in lfs.dir(dir) do
+        if file ~= ".." and file ~= "." then
+          local f = dir .. "/" .. file
+          local attr = lfs.attributes(f)
+          if file ~= "server" and attr.mode == "directory" then
+            loop_dir(f, files)
+          else
+            if file:match(".+%.nelua$") then
+              table.insert(files, dir .. "/" .. file)
+            end
+          end
+        end
+      end
+      return files
+    end
+
+    local files = loop_dir(current_dir, {})
+
+    return files
+  end
+]]
+
+local files: sequence(string) = #[get_files()]#
+
+assert(next(files, 0), "Zero test files found")
+
+local total_tests = 0
+local total_passed = 0
+local total_failed = 0
+
+local failed_tests: sequence(string)
+
+for _, file in ipairs(files) do
+  local ok = os.execute(("nelua %s"):format(file))
+  if not ok then
+    failed_tests:push(file)
+    io.stderr:write(("%s Test: %s failed\n"):format(AnsiColor.new("[ERROR]"):Red():tostring(), file))
+    total_tests = total_tests + 1
+    total_failed = total_failed + 1
+  else
+    print(("%s Test: %s passed"):format(AnsiColor.new("[SUCCESS]"):Green():tostring(), file))
+    total_tests = total_tests + 1
+    total_passed = total_passed + 1
+  end
+end
+
+local passed_colored = AnsiColor.new(tostring(total_passed)):Green():tostring()
+local failed_colored = AnsiColor.new(tostring(total_failed)):Red():tostring()
+print(("Total tests: %s, Passed: %s, Failed: %s"):format(total_tests, passed_colored, failed_colored))
+
+if next(failed_tests, 0) then
+  os.exit(1)
+end
