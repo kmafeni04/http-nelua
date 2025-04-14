@@ -4,11 +4,19 @@ local app = http.new()
 
 app:set_static("./static", "static")
 
-app:get("index", "/", function(self: *http.Server)
-  return self:text(200, "hello")
+app:before_filter(function(self: *http.Server): (boolean, http.Response)
+  self.session:set_val("val", "test")
+  if self.req.current_path ~= self:url_for("test") and self.session:get_val("val") == "test" then
+    return true, self:redirect("/test")
+  end
+  return false, {}
 end)
 
-app:get("bye", "/bye", function(self: *http.Server)
+app:get("index", "/", function(self: *http.Server)
+  return self:text(200, self.session:get_val("name"))
+end)
+
+app:get("test", "/test", function(self: *http.Server)
   return self:text(200, "bye")
 end)
 

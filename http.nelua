@@ -295,22 +295,20 @@ local function status_text(code: http.Status): string
   end
 end
 
+local http.NotSetOrBool = @enum{
+  NOT_SET = 0,
+  TRUE,
+  FALSE
+}
+
 local http.Cookie = @record{
   name: string,
   val: string,
   path: string,
   domain: string,
   expires: string,
-  secure: enum{
-    NOT_SET = 0,
-    TRUE,
-    FALSE
-  },
-  httpOnly: enum{
-    NOT_SET = 0,
-    TRUE,
-    FALSE
-  }
+  secure: http.NotSetOrBool,
+  httpOnly: http.NotSetOrBool
 }
 
 local http.Response = @record{
@@ -322,10 +320,11 @@ local http.Response = @record{
 }
 
 function http.Response:destroy()
-  self.content = ""
+  self.content = (@string)()
   self.status = (@integer)()
-  self.content_type = ""
+  self.content_type = (@string)()
   self.headers:destroy()
+  self.cookies:destroy()
 end
 
 local http.Server <forwarddecl> = @record{}
@@ -342,7 +341,7 @@ local http.Config = @record{
   bind_host: string,
   secret: string,
   session_name: string,
-  logging: string
+  logging: http.NotSetOrBool
 }
 
 local Session = @record{
@@ -367,6 +366,8 @@ function Session:get_val(name: string): string
   return self.vals[name]
 end
 
+local http.BeforeFunc = @function(self: *http.Server): (boolean, http.Response)
+
 http.Server = @record{
   config: http.Config,
   static_dir: string,
@@ -381,7 +382,8 @@ http.Server = @record{
   },
   default_route: http.ActionFn,
   handle_404: http.ActionFn,
-  session: Session
+  session: Session,
+  before_funcs: sequence(http.BeforeFunc),
 }
 
 local http.utils = @record{}
@@ -441,10 +443,10 @@ function http.Response:tostring(): string
       if v.expires ~= "" then
         sb:write(("; Expires=%s"):format(v.expires))
       end
-      if v.secure == 0 or v.secure == 1 then
+      if v.secure == http.NotSetOrBool.NOT_SET or v.secure == http.NotSetOrBool.TRUE then
         sb:write(("; Secure"):format(v.secure))
       end
-      if v.httpOnly == 0 or v.httpOnly == 1 then
+      if v.httpOnly == http.NotSetOrBool.NOT_SET or v.httpOnly == http.NotSetOrBool.TRUE then
         sb:write(("; HttpOnly"):format(v.httpOnly))
       end
       sb:write("\r\n")
@@ -537,6 +539,10 @@ end
     end
   end
 ## end
+
+function http.Server:before_filter(fn: http.BeforeFunc)
+  self.before_funcs:push(fn)
+end
 
 function http.Server:url_for(name: string): string
   if self.named_routes:has(name) then
@@ -655,6 +661,19 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
   end
 
+  for _, fn in ipairs(self.before_funcs) do
+    local stop, early_resp = fn(self)
+    if stop then
+      resp = early_resp
+      send_session(self, &resp)
+      resp_str = resp:tostring()
+      status_code = resp.status
+      if method ~= "" and self.config.logging == http.NotSetOrBool.TRUE then
+        print(("[%s] %s %s %s"):format(status_code, method, uri, version))
+      end
+      return resp_str
+    end
+  end
   if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
     resp = self.routes[uri].methods[method](self)
     send_session(self, &resp)
@@ -718,7 +737,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
   end
 
-  if method ~= "" and self.config.logging == "on" then
+  if method ~= "" and self.config.logging == 1 then
     print(("[%s] %s %s %s"):format(status_code, method, uri, version))
   end
   return resp_str
@@ -824,7 +843,7 @@ function http.new(config: http.Config): http.Server
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
   config.session_name = config.session_name == "" and "http_session" or config.session_name
   config.secret = config.secret == "" and "please-change-me" or config.secret
-  config.logging = config.logging == "" and "on" or config.logging
+  config.logging = config.logging == 0 and 1 or config.logging
   local s: http.Server
   s.config = config
   s.static_dir = "./static"
