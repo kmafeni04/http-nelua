@@ -296,11 +296,22 @@ local function status_text(code: http.Status): string
   end
 end
 
+local http.Cookie = @record{
+  name: string,
+  value: string,
+  path: string,
+  domain: string,
+  expires: string,
+  secure: string,
+  httpOnly: string
+}
+
 local http.Response = @record{
   content: string,
   status: http.Status,
   content_type: string,
   headers: hashmap(string, string),
+  cookies: sequence(http.Cookie)
 }
 
 function http.Response:destroy()
@@ -337,7 +348,7 @@ http.Server = @record{
   req: record{
     headers: hashmap(string, string),
     current_path: string,
-    params: hashmap(string, string)
+    params: hashmap(string, string),
   },
   default_route: http.ActionFn,
   handle_404: http.ActionFn
@@ -375,11 +386,51 @@ function http.Response:tostring(): string
   for k, v in pairs(self.headers) do
     sb:write(("%s: %s\r\n"):format(k, v))
   end
+  for _, v in ipairs(self.cookies) do
+    assert(v.name ~= "")
+    assert(v.value ~= "")
+    sb:write(("Set-Cookie: %s=%s"):format(v.name, v.value))
+    if v.path ~= "" then
+      sb:write(("; Path=%s"):format(v.path))
+    end
+    if v.domain ~= "" then
+      sb:write(("; Domain=%s"):format(v.domain))
+    end
+    if v.expires ~= "" then
+      sb:write(("; Expires=%s"):format(v.expires))
+    end
+    if v.secure ~= "" then
+      sb:write(("; Secure=%s"):format(v.secure))
+    end
+    if v.httpOnly ~= "" then
+      sb:write(("; HttpOnly=%s"):format(v.httpOnly))
+    end
+    sb:write("\r\n")
+  end
   sb:write(("Content-type: %s\r\n"):format(self.content_type))
   sb:write(("Content-Length: %d\r\n\r\n"):format(#self.content + 2))
   sb:write(("%s\r\n"):format(self.content))
 
   return sb:promote()
+end
+
+function http.Response:set_cookie(c: http.Cookie)
+  assert(c.name ~= "")
+  assert(c.value ~= "")
+  self.cookies:push(c)
+end
+
+function http.Server:get_cookie(name: string): (string, string)
+  if not self.req.headers:has("Cookie") then
+    return "", "Cookie header not received"
+  end
+  local cookies = self.req.headers["Cookie"] .. ";"
+  for _, cookie_span in cookies:gmatch("([%w_]+)=([%w_]+);") do
+    if cookie_span[0] == name then
+      return cookie_span[1], ""
+    end
+  end
+  return "", "Cookie not found"
 end
 
 function http.Server:set_static(dir: string, name: string)

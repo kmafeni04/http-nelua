@@ -5,10 +5,6 @@
 
 require "stringbuilder"
 
-global function RAND_bytes(buf: *cchar, num: cint): cint <cimport, nodecl> end
-
-local TOKEN_LENGTH <comptime> = 32 -- 32 bytes = 256 bits
-
 global function get_hex(buf: *cchar, len: isize): string
   local sb: stringbuilder
   local data = (@*[0]cchar)(buf)
@@ -17,6 +13,10 @@ global function get_hex(buf: *cchar, len: isize): string
   end
   return sb:promote()
 end
+
+global function RAND_bytes(buf: *cchar, num: cint): cint <cimport, nodecl> end
+
+local TOKEN_LENGTH <comptime> = 32 -- 32 bytes = 256 bits
 
 global EVP_MAX_MD_SIZE <comptime> = 64 -- longest known is SHA512
 
