@@ -297,7 +297,7 @@ end
 
 local http.Cookie = @record{
   name: string,
-  value: string,
+  val: string,
   path: string,
   domain: string,
   expires: string,
@@ -350,11 +350,16 @@ local Session = @record{
   send: boolean
 }
 
-function Session:set_val(name: string, val: string)
-  assert(name ~= "")
-  assert(val ~= "")
+function Session:set_val(name: string, val: string): (boolean, string)
+  if name == "" then
+    return false, "A session value cannot have an empty string for its name"
+  end
+  if val == "" then
+    return false, "A session value cannot have an empty string for its val"
+  end
   self.vals[name] = val
   self.send = true
+  return true, ""
 end
 
 function Session:get_val(name: string): string
@@ -420,28 +425,30 @@ function http.Response:tostring(): string
   sb:write("Server: http-nelua\r\n")
   sb:write(("Date: %s\r\n"):format(formatted_date))
   for k, v in pairs(self.headers) do
-    sb:write(("%s: %s\r\n"):format(k, v))
+    if k ~= "" and v ~= "" then
+      sb:write(("%s: %s\r\n"):format(k, v))
+    end
   end
   for _, v in ipairs(self.cookies) do
-    assert(v.name ~= "")
-    assert(v.value ~= "")
-    sb:write(("Set-Cookie: %s=%s"):format(v.name, v.value))
-    if v.path ~= "" then
-      sb:write(("; Path=%s"):format(v.path))
+    if v.name ~= "" or v.val ~= "" then 
+      sb:write(("Set-Cookie: %s=%s"):format(v.name, v.val))
+      if v.path ~= "" then
+        sb:write(("; Path=%s"):format(v.path))
+      end
+      if v.domain ~= "" then
+        sb:write(("; Domain=%s"):format(v.domain))
+      end
+      if v.expires ~= "" then
+        sb:write(("; Expires=%s"):format(v.expires))
+      end
+      if v.secure == 0 or v.secure == 1 then
+        sb:write(("; Secure"):format(v.secure))
+      end
+      if v.httpOnly == 0 or v.httpOnly == 1 then
+        sb:write(("; HttpOnly"):format(v.httpOnly))
+      end
+      sb:write("\r\n")
     end
-    if v.domain ~= "" then
-      sb:write(("; Domain=%s"):format(v.domain))
-    end
-    if v.expires ~= "" then
-      sb:write(("; Expires=%s"):format(v.expires))
-    end
-    if v.secure == 0 or v.secure == 1 then
-      sb:write(("; Secure"):format(v.secure))
-    end
-    if v.httpOnly == 0 or v.httpOnly == 1 then
-      sb:write(("; HttpOnly"):format(v.httpOnly))
-    end
-    sb:write("\r\n")
   end
   sb:write(("Content-type: %s\r\n"):format(self.content_type))
   sb:write(("Content-Length: %d\r\n\r\n"):format(#self.content + 2))
@@ -450,10 +457,15 @@ function http.Response:tostring(): string
   return sb:promote()
 end
 
-function http.Response:set_cookie(c: http.Cookie)
-  assert(c.name ~= "")
-  assert(c.value ~= "")
+function http.Response:set_cookie(c: http.Cookie): (boolean, string)
+  if c.name == "" then
+    return false ,"A cookie value cannot have an empty string for its name"
+  end
+  if c.val == "" then
+    return false, "A cookie value cannot have an empty string for its val"
+  end
   self.cookies:push(c)
+  return true, ""
 end
 
 function http.Server:get_cookie(name: string): string
@@ -498,7 +510,8 @@ function http.utils.csrf.validate_token(self: *http.Server): boolean
 end
 
 function http.Server:set_static(dir: string, name: string)
-  assert(dir ~= "" and name ~= "")
+  assert(dir ~= "", "Static directory path can not be an empty string")
+  assert(name ~= "", "Static directory name can not be an empty string")
   self.static_dir = dir
   self.static_name = name
 end
@@ -636,7 +649,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       local session_map = http.utils.b64_encode(sb:promote()) 
       resp:set_cookie({
         name = self.config.session_name,
-        value = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+        val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
       })
       self.session.send = false
     end
