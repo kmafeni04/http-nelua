@@ -1,11 +1,12 @@
 ## cinclude "<openssl/rand.h>"
 ## cinclude "<openssl/evp.h>"
+## cinclude "<openssl/hmac.h>"
 ## linklib "ssl"
 ## linklib "crypto"
 
 require "stringbuilder"
 
-global function get_hex(buf: *cchar, len: isize): string
+global function crypt_get_hex(buf: *cchar, len: isize): string
   local sb: stringbuilder
   local data = (@*[0]cchar)(buf)
   for i = 0, < len do
@@ -16,64 +17,9 @@ end
 
 global function RAND_bytes(buf: *cchar, num: cint): cint <cimport, nodecl> end
 
-local TOKEN_LENGTH <comptime> = 32 -- 32 bytes = 256 bits
-
-global EVP_MAX_MD_SIZE <comptime> = 64 -- longest known is SHA512
-
-global EVP_MD_CTX <cimport, nodecl> = @record{}
 global EVP_MD <cimport, nodecl> = @record{}
-global ENGINE <cimport, nodecl> = @record{}
 
-global function EVP_MD_CTX_new(): *EVP_MD_CTX <cimport, nodecl> end
+global function HMAC(evp_md: *EVP_MD, key: *void, key_len: cint, data: cstring, data_len: isize, md: cstring, md_len: *cint): cstring <cimport, nodecl> end
 
-global function EVP_DigestInit_ex(ctx: *EVP_MD_CTX, type: *EVP_MD, impl: *ENGINE): cint <cimport, nodecl> end
-
+global function EVP_sha1(): *EVP_MD <cimport, nodecl> end
 global function EVP_sha256(): *EVP_MD <cimport, nodecl> end
-
-global function EVP_MD_CTX_free(ctx: *EVP_MD_CTX): void <cimport, nodecl> end
-
-global function EVP_DigestUpdate(ctx: *EVP_MD_CTX, d: *void, cnt: isize): cint <cimport, nodecl> end
-
-global function EVP_DigestFinal_ex(ctx: *EVP_MD_CTX, md: cstring, s: *uinteger): cint <cimport, nodecl> end
-
---[[
-do
-  require "os"
-  require "io"
-  
-  local secret: cstring = "MySecretMessage"
-
-  local mdctx = EVP_MD_CTX_new()
-
-  if mdctx == nilptr then
-    io.stderr:write("Error creating EVP_MD_CTX\n")
-    os.exit(1)
-  end
-
-  defer
-    EVP_MD_CTX_free(mdctx)
-  end
-
-  
-  if EVP_DigestInit_ex(mdctx, EVP_sha256(), nilptr) ~= 1 then
-    io.stderr:write("Error initializing the digest context\n")
-    os.exit(1)
-  end
-
-  if EVP_DigestUpdate(mdctx, secret, #secret) ~= 1 then
-    io.stderr:write("Error updating the digest\n")
-    os.exit(1)
-  end
-
-  local hash: [EVP_MAX_MD_SIZE]cchar
-  local hash_len: uinteger
-  if EVP_DigestFinal_ex(mdctx, &hash, &hash_len) ~= 1 then
-    io.stderr:write("Error finalizing the digest\n")
-    os.exit(1)
-  end
-
-  local hex = get_hex(&hash, hash_len)
-
-  print(hex)
-end
-]]
