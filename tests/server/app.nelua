@@ -5,20 +5,11 @@ local app = http.new()
 app:set_static("./static", "static")
 
 app:get("index", "/", function(self: *http.Server)
-  return self:html(200, ([[
-    <form action="/post" method="post">
-      <button>submit</button>
-      <input type="hidden" name="csrf_token" value="%s">
-    </form>
-  ]]):format(http.utils.csrf.generate_token(self)))
+  return self:text(200, "hello")
 end)
 
-app:post(nil, "/post", function(self: *http.Server)
-  if not http.utils.csrf.validate_token(self) then
-    return self:text(403, "failed")
-  end
-  return self:text(200, "success")
+app:get("bye", "/bye", function(self: *http.Server)
+  return self:text(200, "bye")
 end)
-
 
 app:serve()

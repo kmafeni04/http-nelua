@@ -503,95 +503,27 @@ function http.Server:set_static(dir: string, name: string)
   self.static_name = name
 end
 
-function http.Server:get(name: facultative(string), route: string, action: http.ActionFn)
-  assert(not self.routes:has(route) or not self.routes[route].methods:has("GET"))
-  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("GET"))
-  ## if not name.type.is_niltype then
-    assert(name ~= "")
-    if self.named_routes:has(name) then
-      assert(self.named_routes[name] == route)
-    else
-      self.named_routes[name] = route
-    end
-  ## end
-  if route:match("[:%*]+.*") then
-    self.var_routes[route].methods["GET"] = action
-  else
-    self.routes[route].methods["GET"] = action
-  end
-end
+## local methods = {"get", "post", "put", "patch", "delete"}
 
-function http.Server:post(name: facultative(string), route: string, action: http.ActionFn)
-  assert(not self.routes:has(route) or not self.routes[route].methods:has("POST"))
-  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("POST"))
-  ## if not name.type.is_niltype then
-    assert(name ~= "")
-    if self.named_routes:has(name) then
-      assert(self.named_routes[name] == route)
+## for _, method in ipairs(methods) do
+  function http.Server:#|method|#(name: facultative(string), route: string, action: http.ActionFn)
+    assert(not self.routes:has(route) or not self.routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
+    assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
+    ## if not name.type.is_niltype then
+      assert(name ~= "", ("Route name can not be an empty string: `%s`"):format(route))
+      if self.named_routes:has(name) then
+        assert(self.named_routes[name] == route, ("A name can not be used with more than one route group: `%s -> %s`"):format(name, route))
+      else
+        self.named_routes[name] = route
+      end
+    ## end
+    if route:match("[:%*]+.*") then
+      self.var_routes[route].methods[#[method:upper()]#] = action
     else
-      self.named_routes[name] = route
+      self.routes[route].methods[#[method:upper()]#] = action
     end
-  ## end
-  if route:match("[:%*]+.*") then
-    self.var_routes[route].methods["POST"] = action
-  else
-    self.routes[route].methods["POST"] = action
   end
-end
-
-function http.Server:delete(name: facultative(string), route: string, action: http.ActionFn)
-  assert(not self.routes:has(route) or not self.routes[route].methods:has("DELETE"))
-  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("DELETE"))
-  ## if not name.type.is_niltype then
-    assert(name ~= "")
-    if self.named_routes:has(name) then
-      assert(self.named_routes[name] == route)
-    else
-      self.named_routes[name] = route
-    end
-  ## end
-  if route:match("[:%*]+.*") then
-    self.var_routes[route].methods["DELETE"] = action
-  else
-    self.routes[route].methods["DELETE"] = action
-  end
-end
-
-function http.Server:put(name: facultative(string), route: string, action: http.ActionFn)
-  assert(not self.routes:has(route) or not self.routes[route].methods:has("PUT"))
-  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("PUT"))
-  ## if not name.type.is_niltype then
-    assert(name ~= "")
-    if self.named_routes:has(name) then
-      assert(self.named_routes[name] == route)
-    else
-      self.named_routes[name] = route
-    end
-  ## end
-  if route:match("[:%*]+.*") then
-    self.var_routes[route].methods["PUT"] = action
-  else
-    self.routes[route].methods["PUT"] = action
-  end
-end
-
-function http.Server:patch(name: facultative(string), route: string, action: http.ActionFn)
-  assert(not self.routes:has(route) or not self.routes[route].methods:has("PATCH"))
-  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has("PATCH"))
-  ## if not name.type.is_niltype then
-    assert(name ~= "")
-    if self.named_routes:has(name) then
-      assert(self.named_routes[name] == route)
-    else
-      self.named_routes[name] = route
-    end
-  ## end
-  if route:match("[:%*]+.*") then
-    self.var_routes[route].methods["PATCH"] = action
-  else
-    self.routes[route].methods["PATCH"] = action
-  end
-end
+## end
 
 function http.Server:url_for(name: string): string
   if self.named_routes:has(name) then
