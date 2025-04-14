@@ -11,6 +11,8 @@ require "hashmap"
 require ".libs.socket"
 require ".libs.unistd"
 require ".libs.threadpool"
+require ".libs.cryptography"
+require ".libs.base64"
 
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"

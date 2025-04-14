@@ -1,0 +1,113 @@
+require "string"
+require "math"
+require "stringbuilder"
+
+global Base64 = @record{}
+
+local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+local b64lookup: sequence(string)
+for i = 1, #b64chars do
+  b64lookup[i - 1] = b64chars:sub(i, i)
+end
+
+local rev_lookup: hashmap(string, integer)
+for i = 1, #b64chars do
+  rev_lookup[b64chars:sub(i, i)] = i - 1
+end
+
+local function byte_to_bits(b: integer)
+  local bits: sequence(integer)
+  for i = 7, 0, -1 do
+    bits[#bits + 1] = math.floor(b / 2^i) % 2
+  end
+  return bits
+end
+
+local function bits_to_byte(bits: sequence(integer))
+  local sum = 0
+  for i = 1, 8 do
+    sum = sum + bits[i] * 2^(8 - i)
+  end
+  return sum
+end
+
+function Base64.encode(input: string)
+  local bytes: sequence(integer)
+  for i = 1, #input do
+    bytes[i] = input:byte(i)
+  end
+  local bits: sequence(integer)
+
+  for _, byte in ipairs(bytes) do
+    local b = byte_to_bits(byte)
+    for _, bit in ipairs(b) do
+      bits[#bits + 1] = bit
+    end
+  end
+
+  while #bits % 6 ~= 0 do
+    bits[#bits + 1] = 0
+  end
+
+  local sb: stringbuilder
+  for i = 1, #bits, 6 do
+    local value = 0
+    for j = 0, 5 do
+      value = value + bits[i + j] * 2^(5 - j)
+    end
+    sb:write(b64lookup[value])
+  end
+
+  local padding = 3 - (#bytes % 3)
+  if padding < 3 then
+    sb:write(string.rep("=", padding))
+  end
+
+  return sb:promote()
+end
+
+function Base64.decode(data: string)
+  data = data:gsub("=", "")
+  local bits: sequence(integer)
+
+  for i = 1, #data do
+    local c = data:sub(i, i)
+    local value = rev_lookup[c]
+    for j = 5, 0, -1 do
+      bits[#bits + 1] = math.floor(value / 2^j) % 2
+    end
+  end
+
+  local bytes: sequence(string)
+  for i = 1, #bits, 8 do
+    if i + 7 <= #bits then
+      local to_change: sequence(integer)
+      local j = i
+      for k = 1, 8 do
+        to_change[k] = bits[j]
+        j = j + 1
+      end
+      local byte = bits_to_byte(to_change)
+      bytes[#bytes + 1] = string.char(byte)
+    end
+  end
+  
+  local sb: stringbuilder
+  for _, v in ipairs(bytes) do
+    sb:write(v)
+  end
+
+  return sb:promote()
+end
+
+--[[
+do
+  local text = "hello world"
+  local encoded = Base64.encode(text)
+  print("Encoded:", encoded)
+
+  local decoded = Base64.decode(encoded)
+  print("Decoded:", decoded)
+end
+]]
