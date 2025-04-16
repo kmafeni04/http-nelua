@@ -39,51 +39,51 @@ local function SSL_set_tlsext_host_name(ssl: *SSL, host: cstring): clong
 end
 local function ERR_print_errors_fp(fp: *C.FILE) <cimport, nodecl> end
 
-local Address = @record{
+local SendAddress = @record{
   host: string,
   path: string,
   ssl: boolean
 }
 
-local function parse_url(url: string): (Address, string)
-  local addr: Address
+local function parse_url(url: string): (SendAddress, string)
+  local send_addr: SendAddress
 
   if url:match("^https://.*") then
-    addr.ssl = true
+    send_addr.ssl = true
     local matched, matched_seq = url:match("^https://([^/]+)/?$")
     local matched_path, matched_path_seq = url:match("^https://?([^/]+)(/?.*)$")
     if matched then
-      addr.host = matched_seq[1]:gsub("^www.", "")
-      addr.path = "/"
+      send_addr.host = matched_seq[1]
+      send_addr.path = "/"
     elseif matched_path then
-      addr.host = matched_path_seq[1]:gsub("^www.", "")
-      addr.path = matched_path_seq[2]
+      send_addr.host = matched_path_seq[1]
+      send_addr.path = matched_path_seq[2]
     end
   elseif url:match("^http://.*") then
     local matched, matched_seq = url:match("^http://([^/]+)/?$")
     local matched_path, matched_path_seq = url:match("^http://?([^/]+)(/?.*)$")
     if matched then
-      addr.host = matched_seq[1]:gsub("^www.", "")
-      addr.path = "/"
+      send_addr.host = matched_seq[1]
+      send_addr.path = "/"
     elseif matched_path then
-      addr.host = matched_path_seq[1]:gsub("^www.", "")
-      addr.path = matched_path_seq[2]
+      send_addr.host = matched_path_seq[1]
+      send_addr.path = matched_path_seq[2]
     end
   else
     return {}, ("url `%s` should contain either http:// or https:// at the start"):format(url)
   end
 
-  return addr, ""
+  return send_addr, ""
 end
 
-local Request = @record{
+local SendRequest = @record{
   url: string,
   method: string,
   headers: hashmap(string, string),
   body: hashmap(string, string)
 }
 
-local SendResult = @record{
+local SendResponse = @record{
   body: string,
   status: uinteger,
   headers: hashmap(string, string)
@@ -91,7 +91,7 @@ local SendResult = @record{
 
 local BUFFER_SIZE <comptime> = 8192
 
-local function send_https(req: Request, parsed: Address): (SendResult, string)
+local function send_https(req: SendRequest, send_addr: SendAddress): (SendResponse, string)
   SSL_library_init()
   SSL_load_error_strings()
   OpenSSL_add_all_algorithms()
@@ -101,7 +101,7 @@ local function send_https(req: Request, parsed: Address): (SendResult, string)
     return {}, "Failed to create new SSL context"
   end
 
-  local server = gethostbyname(parsed.host)
+  local server = gethostbyname(send_addr.host)
   if not server then
     return {}, "gethostbyname error"
   end
@@ -119,7 +119,7 @@ local function send_https(req: Request, parsed: Address): (SendResult, string)
   local ssl = SSL_new(ctx)
   SSL_set_fd(ssl, sock)
 
-  SSL_set_tlsext_host_name(ssl, parsed.host)
+  SSL_set_tlsext_host_name(ssl, send_addr.host)
 
   if SSL_connect(ssl) <= 0 then
     ERR_print_errors_fp(C.stderr)
@@ -128,52 +128,88 @@ local function send_https(req: Request, parsed: Address): (SendResult, string)
 
   local header_sb: stringbuilder
   for k, v in pairs(req.headers) do
-    header_sb:write(("%s: %s"):format(k, v))
+    header_sb:write(("%s: %s\r\n"):format(k, v))
   end
   local body_sb: stringbuilder
   for k, v in pairs(req.body) do
-    body_sb:write(("%s: %s"):format(k, v))
+    body_sb:write(("%s: %s\r\n"):format(k, v))
   end
 
-  local str = ("%s %s HTTP/1.1\r\nHost: %s\r\n%s\r\nConnection: close\r\n\r\n%s"):format(req.method:upper(), parsed.path, parsed.host, header_sb:promote(), body_sb:promote())
+  local str = ("%s %s HTTP/1.1\r\nHost: %s\r\n%sConnection: close\r\n\r\n%s"):format(req.method:upper(), send_addr.path, send_addr.host, header_sb:promote(), body_sb:promote())
   local request: cstring = str
-  SSL_write(ssl, request, 1024)
+  SSL_write(ssl, request, #request)
 
   local buffer: [BUFFER_SIZE]cchar
+  local buffer_size = BUFFER_SIZE
 
+  local sb: stringbuilder
+  local bytes: integer
   while true do
-    local bytes = SSL_read(ssl, &buffer, #buffer - 1)
-    if bytes <= 0 then break end
+  bytes = SSL_read(ssl, &buffer, #buffer - 1)
+  if bytes > 0 then
+    local str: string = &buffer
+    sb:write(str:sub(1, bytes))
+  else
+    break
   end
+end
 
   SSL_shutdown(ssl)
   SSL_free(ssl)
   close(sock)
   SSL_CTX_free(ctx)
 
-  -- TODO: parse body and status
+  local response_headers: hashmap(string, string)
 
-  return {}, ""
+  local code: uinteger
+  local str: string = sb:promote()
+  local i = 0
+  for line in str:gmatch("([^\r\n]*)\r\n") do
+    if i < 1 then
+      local info_match, info_seq = line:match("HTTP/%d%.%d (%d%d%d)")
+      if info_match then
+        if info_seq[1]:match("%d+") then
+          code = tonumber(info_seq[1])
+        end
+      end
+    else
+      local header_match, header_seq = line:match("(.+): ([^\r\n]+)")
+      if header_match then
+        response_headers[header_seq[1]] = header_seq[2]
+      end
+    end
+    i = i + 1
+  end
+  if code == 0 then
+    return {}, "failed to parse http code"
+  end
+  local _, body_seq = str:match("\r\n\r\n(.+)")
+  local body = body_seq[1]:gsub("\r\n0\r\n\r\n$", "")
+  return {
+    body = body,
+    status = code,
+    headers = response_headers
+  }, ""
 end
 
-local function send_request(req: Request): (SendResult, string)
+local function send_request(req: SendRequest): (SendResponse, string)
   assert(req.url ~= "")
   assert(req.method ~= "")
-  local addr, err = parse_url(req.url)
+  local send_addr, err = parse_url(req.url)
   if err ~= "" then
     return {}, err
   end
 
-  local result: SendResult
-  if addr.ssl then
-    result, err = send_https(req, addr)
+  local resp: SendResponse
+  if send_addr.ssl then
+    resp, err = send_https(req, send_addr)
     if err ~= "" then
       return {}, err
     end
   else
     -- result = send_http(addr.host, addr.path)
   end
-  return result, ""
+  return resp, ""
 end
 
 return send_request
