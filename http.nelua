@@ -14,17 +14,6 @@ require ".libs.cryptography"
 local Base64 = require(".libs.base64")
 local send_request = require(".libs.send_request")
 
-local resp, err = send_request({
-  url = "https://jsonplaceholder.typicode.com/posts",
-  method = "get"
-})
-
-if err ~= "" then
-  print(err)
-end
-
-print(resp.body)
-
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"
 mime_types["abw"] = "application/x-abiword"

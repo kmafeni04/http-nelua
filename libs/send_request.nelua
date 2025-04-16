@@ -102,7 +102,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
   end
 
   local server = gethostbyname(send_addr.host)
-  if not server then
+  if server == "nilptr" then
     return {}, "gethostbyname error"
   end
 
@@ -130,12 +130,15 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
   for k, v in pairs(req.headers) do
     header_sb:write(("%s: %s\r\n"):format(k, v))
   end
+
   local body_sb: stringbuilder
   for k, v in pairs(req.body) do
     body_sb:write(("%s: %s\r\n"):format(k, v))
   end
 
-  local str = ("%s %s HTTP/1.1\r\nHost: %s\r\n%sConnection: close\r\n\r\n%s"):format(req.method:upper(), send_addr.path, send_addr.host, header_sb:promote(), body_sb:promote())
+  local str = ("%s %s HTTP/1.1\r\nHost: %s\r\n%sConnection: close\r\n\r\n%s"):format(
+    req.method:upper(), send_addr.path, send_addr.host, header_sb:promote(), body_sb:promote()
+  )
   local request: cstring = str
   SSL_write(ssl, request, #request)
 
@@ -145,14 +148,14 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
   local sb: stringbuilder
   local bytes: integer
   while true do
-  bytes = SSL_read(ssl, &buffer, #buffer - 1)
-  if bytes > 0 then
-    local str: string = &buffer
-    sb:write(str:sub(1, bytes))
-  else
-    break
+    bytes = SSL_read(ssl, &buffer, #buffer - 1)
+    if bytes > 0 then
+      local str: string = &buffer
+      sb:write(str:sub(1, bytes))
+    else
+      break
+    end
   end
-end
 
   SSL_shutdown(ssl)
   SSL_free(ssl)
@@ -180,11 +183,96 @@ end
     end
     i = i + 1
   end
+
   if code == 0 then
     return {}, "failed to parse http code"
   end
+
   local _, body_seq = str:match("\r\n\r\n(.+)")
   local body = body_seq[1]:gsub("\r\n0\r\n\r\n$", "")
+
+  return {
+    body = body,
+    status = code,
+    headers = response_headers
+  }, ""
+end
+
+local function send_http(req: SendRequest, send_addr: SendAddress): (SendResponse, string)
+
+  local server = gethostbyname(send_addr.host)
+  if server == nilptr then
+    return {}, "gethostbyname error"
+  end
+
+  local sock = socket(AF_INET, SOCK_STREAM, 0)
+  defer close(sock) end
+  local addr: sockaddr_in
+  addr.sin_family = AF_INET
+  addr.sin_port = htons(80)
+  addr.sin_addr = $(@*in_addr)((@*[0]cstring)(server.h_addr_list)[0])
+
+  if connect(sock, (@*sockaddr)(&addr), #sockaddr_in) < 0 then
+    return {}, "connect error"
+  end
+
+  local header_sb: stringbuilder
+  for k, v in pairs(req.headers) do
+    header_sb:write(("%s: %s\r\n"):format(k, v))
+  end
+
+  local body_sb: stringbuilder
+  for k, v in pairs(req.body) do
+    body_sb:write(("%s: %s\r\n"):format(k, v))
+  end
+
+  local str = ("%s %s HTTP/1.1\r\nHost: %s\r\n%sConnection: close\r\n\r\n%s"):format(
+    req.method:upper(), send_addr.path, send_addr.host, header_sb:promote(), body_sb:promote()
+  )
+  local request: cstring = str
+  send(sock, request, #request, 0)
+
+  local buffer: [BUFFER_SIZE]cchar
+  local sb: stringbuilder
+  local bytes: integer
+  while true do
+    bytes = recv(sock, &buffer, #buffer - 1, 0)
+    if bytes > 0 then
+      local str: string = &buffer
+      sb:write(str:sub(1, bytes))
+    else
+      break
+    end
+  end
+
+  local response_headers: hashmap(string, string)
+  local code: uinteger
+  local str: string = sb:promote()
+  local i = 0
+  for line in str:gmatch("([^\r\n]*)\r\n") do
+    if i < 1 then
+      local info_match, info_seq = line:match("HTTP/%d%.%d (%d%d%d)")
+      if info_match then
+        if info_seq[1]:match("%d+") then
+          code = tonumber(info_seq[1])
+        end
+      end
+    else
+      local header_match, header_seq = line:match("(.+): ([^\r\n]+)")
+      if header_match then
+        response_headers[header_seq[1]] = header_seq[2]
+      end
+    end
+    i = i + 1
+  end
+
+  if code == 0 then
+    return {}, "failed to parse http code"
+  end
+
+  local _, body_seq = str:match("\r\n\r\n(.+)")
+  local body = body_seq[1]:gsub("\r\n0\r\n\r\n$", "")
+
   return {
     body = body,
     status = code,
@@ -207,7 +295,10 @@ local function send_request(req: SendRequest): (SendResponse, string)
       return {}, err
     end
   else
-    -- result = send_http(addr.host, addr.path)
+    resp, err = send_http(req, send_addr)
+    if err ~= "" then
+      return {}, err
+    end
   end
   return resp, ""
 end
