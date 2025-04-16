@@ -1,7 +1,6 @@
 ## pragmas.nogc = true
 
 require "C.stdio"
-require "C.threads"
 
 require "os"
 require "io"
@@ -11,7 +10,18 @@ require ".libs.socket"
 require ".libs.unistd"
 require ".libs.threadpool"
 require ".libs.cryptography"
-require ".libs.base64"
+
+local Base64 = require(".libs.base64")
+local send_request = require(".libs.send_request")
+
+local addr, err = send_request({
+  url = "https://www.jsonplaceholder.typicode.com/posts",
+  method = "get"
+})
+
+if err ~= "" then
+  print(err)
+end
 
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"
@@ -294,6 +304,8 @@ local function status_text(code: http.Status): string
   	return ""
   end
 end
+
+local http.send_request = send_request
 
 local http.NotSetOrBool = @enum{
   NOT_SET = 0,

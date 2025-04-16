@@ -2,7 +2,7 @@ require "string"
 require "math"
 require "stringbuilder"
 
-global Base64 = @record{}
+local Base64 = @record{}
 
 local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
@@ -111,3 +111,5 @@ do
   print("Decoded:", decoded)
 end
 ]]
+
+return Base64

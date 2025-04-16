@@ -1,0 +1,179 @@
+## cinclude "<openssl/err.h>"
+## cinclude "<openssl/ssl.h>"
+## linklib "ssl"
+## linklib "crypto"
+
+require "C.stdio"
+
+require ".socket"
+require ".unistd"
+
+local SSL_METHOD <cimport, nodecl> = @record{}
+local SSL_CTX <cimport, nodecl> = @record{}
+local SSL <cimport, nodecl> = @record{}
+
+local function OPENSSL_init_ssl(opts: uinteger, settings: *void): cint <cimport, nodecl> end
+local function SSL_library_init()
+  OPENSSL_init_ssl(0, nilptr)
+end
+local function SSL_load_error_strings()
+  OPENSSL_init_ssl(0x00200000 | 0x00000002, nilptr)
+end
+local function OpenSSL_add_all_algorithms()
+  OPENSSL_init_ssl(0x00000004 | 0x00000008, nilptr)
+end
+local function SSL_CTX_new(meth: *SSL_METHOD): *SSL_CTX <cimport, nodecl> end
+local function TLS_client_method(): *SSL_METHOD <cimport, nodecl> end
+local function gethostbyname(__name: cstring): *hostent <cimport, nodecl> end
+local function SSL_new(ctx: *SSL_CTX): *SSL <cimport, nodecl> end
+local function SSL_connect(ssl: *SSL): cint <cimport, nodecl> end
+local function SSL_set_fd(s: *SSL, fd: cint): cint <cimport, nodecl> end
+local function SSL_write(ssl: *SSL, buf: *void, num: cint): cint <cimport, nodecl> end
+local function SSL_read(ssl: *SSL, buf: *void, num: cint): cint <cimport, nodecl> end
+local function SSL_shutdown(ssl: *SSL): cint <cimport, nodecl> end
+local function SSL_free(ssl: *SSL) <cimport, nodecl> end
+local function SSL_CTX_free(ctx: *SSL_CTX) <cimport, nodecl> end
+local function SSL_ctrl(ssl: *SSL, cmd: cint, larg: clong, parg: *void): clong <cimport, nodecl> end
+local function SSL_set_tlsext_host_name(ssl: *SSL, host: cstring): clong
+  return SSL_ctrl(ssl, 55, 0, (@*void)(host))
+end
+local function ERR_print_errors_fp(fp: *C.FILE) <cimport, nodecl> end
+
+local Address = @record{
+  host: string,
+  path: string,
+  ssl: boolean
+}
+
+local function parse_url(url: string): (Address, string)
+  local addr: Address
+
+  if url:match("^https://.*") then
+    addr.ssl = true
+    local matched, matched_seq = url:match("^https://([^/]+)/?$")
+    local matched_path, matched_path_seq = url:match("^https://?([^/]+)(/?.*)$")
+    if matched then
+      addr.host = matched_seq[1]:gsub("^www.", "")
+      addr.path = "/"
+    elseif matched_path then
+      addr.host = matched_path_seq[1]:gsub("^www.", "")
+      addr.path = matched_path_seq[2]
+    end
+  elseif url:match("^http://.*") then
+    local matched, matched_seq = url:match("^http://([^/]+)/?$")
+    local matched_path, matched_path_seq = url:match("^http://?([^/]+)(/?.*)$")
+    if matched then
+      addr.host = matched_seq[1]:gsub("^www.", "")
+      addr.path = "/"
+    elseif matched_path then
+      addr.host = matched_path_seq[1]:gsub("^www.", "")
+      addr.path = matched_path_seq[2]
+    end
+  else
+    return {}, ("url `%s` should contain either http:// or https:// at the start"):format(url)
+  end
+
+  return addr, ""
+end
+
+local Request = @record{
+  url: string,
+  method: string,
+  headers: hashmap(string, string),
+  body: hashmap(string, string)
+}
+
+local SendResult = @record{
+  body: string,
+  status: uinteger,
+  headers: hashmap(string, string)
+}
+
+local BUFFER_SIZE <comptime> = 8192
+
+local function send_https(req: Request, parsed: Address): (SendResult, string)
+  SSL_library_init()
+  SSL_load_error_strings()
+  OpenSSL_add_all_algorithms()
+
+  local ctx = SSL_CTX_new(TLS_client_method())
+  if ctx == nilptr then
+    return {}, "Failed to create new SSL context"
+  end
+
+  local server = gethostbyname(parsed.host)
+  if not server then
+    return {}, "gethostbyname error"
+  end
+
+  local sock = socket(AF_INET, SOCK_STREAM, 0)
+  local addr: sockaddr_in
+  addr.sin_family = AF_INET
+  addr.sin_port = htons(443)
+  addr.sin_addr = $(@*in_addr)((@*[0]cstring)(server.h_addr_list)[0])
+
+  if connect(sock, (@*sockaddr)(&addr), #sockaddr_in) < 0 then
+    return {}, "connect error"
+  end
+
+  local ssl = SSL_new(ctx)
+  SSL_set_fd(ssl, sock)
+
+  SSL_set_tlsext_host_name(ssl, parsed.host)
+
+  if SSL_connect(ssl) <= 0 then
+    ERR_print_errors_fp(C.stderr)
+    return {}, "Failed to make SSL connection"
+  end
+
+  local header_sb: stringbuilder
+  for k, v in pairs(req.headers) do
+    header_sb:write(("%s: %s"):format(k, v))
+  end
+  local body_sb: stringbuilder
+  for k, v in pairs(req.body) do
+    body_sb:write(("%s: %s"):format(k, v))
+  end
+
+  local str = ("%s %s HTTP/1.1\r\nHost: %s\r\n%s\r\nConnection: close\r\n\r\n%s"):format(req.method:upper(), parsed.path, parsed.host, header_sb:promote(), body_sb:promote())
+  local request: cstring = str
+  SSL_write(ssl, request, 1024)
+
+  local buffer: [BUFFER_SIZE]cchar
+
+  while true do
+    local bytes = SSL_read(ssl, &buffer, #buffer - 1)
+    if bytes <= 0 then break end
+  end
+
+  SSL_shutdown(ssl)
+  SSL_free(ssl)
+  close(sock)
+  SSL_CTX_free(ctx)
+
+  -- TODO: parse body and status
+
+  return {}, ""
+end
+
+local function send_request(req: Request): (SendResult, string)
+  assert(req.url ~= "")
+  assert(req.method ~= "")
+  local addr, err = parse_url(req.url)
+  if err ~= "" then
+    return {}, err
+  end
+
+  local result: SendResult
+  if addr.ssl then
+    result, err = send_https(req, addr)
+    if err ~= "" then
+      return {}, err
+    end
+  else
+    -- result = send_http(addr.host, addr.path)
+  end
+  return result, ""
+end
+
+return send_request
