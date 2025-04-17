@@ -12,14 +12,14 @@ function Utils.url_escape(s: string): string
   end))
 end
 
-function Utils.url_unescape(s: string)
+function Utils.url_unescape(s: string): string
   s = s:gsub("+", " ")
   return (string.gsub(s, "%%(%x%x)", function(hex: string)
       return string.char(tonumber(hex, 16))
   end))
 end
 
-function Utils.slugify(s: string)
+function Utils.slugify(s: string): string
  local slug = (s:gsub("[%s_]+", "-"):gsub("[^%w%-]+", ""):gsub("-+", "-")):lower()
   if slug:match("-$") then
     slug = slug:sub(1, #slug - 1)
@@ -63,7 +63,7 @@ local function bits_to_byte(bits: sequence(integer))
   return sum
 end
 
-function Utils.b64_encode(input: string)
+function Utils.b64_encode(input: string): string
   local bytes: sequence(integer)
   for i = 1, #input do
     bytes[i] = input:byte(i)
@@ -98,7 +98,7 @@ function Utils.b64_encode(input: string)
   return sb:promote()
 end
 
-function Utils.b64_decode(data: string)
+function Utils.b64_decode(data: string): string
   data = data:gsub("=", "")
   local bits: sequence(integer)
 

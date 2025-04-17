@@ -369,7 +369,7 @@ function Session:get_val(name: string): string
   return self.vals[name]
 end
 
-local http.BeforeFunc = @function(self: *http.Server): (boolean, http.Response)
+local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
 
 http.Server = @record{
   config: http.Config,
@@ -386,7 +386,7 @@ http.Server = @record{
   default_route: http.ActionFn,
   handle_404: http.ActionFn,
   session: Session,
-  before_funcs: sequence(http.BeforeFunc),
+  before_funcs: sequence(http.BeforeFn),
 }
 
 function http.Response:tostring(): string
@@ -485,7 +485,7 @@ end
   end
 ## end
 
-function http.Server:before_filter(fn: http.BeforeFunc)
+function http.Server:before_filter(fn: http.BeforeFn)
   self.before_funcs:push(fn)
 end
 

@@ -80,6 +80,31 @@ local function parse_url(url: string): (SendAddress, string)
   return send_addr, ""
 end
 
+local function decode_chunked(body: string): string
+  local sb: stringbuilder
+  local i = 1
+
+  while true do
+    -- get the chunk size line
+    local start, stop = body:find("([^%x+]+)\r\n", i)
+    if start == 0 then break end
+    local size_hex = body:sub(start, stop)
+
+    if not size_hex:match("%x+") then break end
+    local size = tonumber(size_hex, 16)
+
+    local chunk_start = stop + 1
+    local chunk_end = chunk_start + size - 1
+
+    sb:write(body:sub(chunk_start, chunk_end))
+
+    -- move to next chunk (skip ending \r\n)
+    i = chunk_end + 3
+  end
+
+  return sb:promote()
+end
+
 local SendRequest = @record{
   url: string,
   method: string,
@@ -193,7 +218,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
   end
 
   local _, body_seq = str:match("\r\n\r\n(.+)")
-  local body = body_seq[1]:gsub("\r\n0\r\n\r\n$", "")
+  local body = decode_chunked(body_seq[1]:gsub("\r\n0\r\n\r\n$", ""))
 
   return {
     body = body,
@@ -274,7 +299,7 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
   end
 
   local _, body_seq = str:match("\r\n\r\n(.+)")
-  local body = body_seq[1]:gsub("\r\n0\r\n\r\n$", "")
+  local body = decode_chunked(body_seq[1]:gsub("\r\n0\r\n\r\n$", ""))
 
   return {
     body = body,

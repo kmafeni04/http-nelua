@@ -2,22 +2,12 @@ local http = require "...http"
 
 local app = http.new()
 
-app:set_static("./static", "static")
-
-app:before_filter(function(self: *http.Server): (boolean, http.Response)
-  self.session:set_val("val", "test")
-  if self.req.current_path ~= self:url_for("test") and self.session:get_val("val") == "test" then
-    return true, self:redirect("/test")
-  end
-  return false, {}
-end)
-
 app:get("index", "/", function(self: *http.Server)
-  return self:text(200, self.session:get_val("name"))
-end)
-
-app:get("test", "/test", function(self: *http.Server)
-  return self:text(200, "bye")
+  local resp = http.send_request({
+    url = "https://jsonplaceholder.typicode.com/todos",
+    method = "get"
+  })
+  return self:json(200, resp.body)
 end)
 
 app:serve()
