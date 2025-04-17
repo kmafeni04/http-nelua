@@ -1,0 +1,31 @@
+local http = require "..http"
+
+do
+  local app = http.new({
+    logging = http.NotSetOrBool.FALSE
+  })
+
+  app:get(nil, "/", function(self: *http.Server)
+    local resp = self:text(200, "ok")
+    local ok = resp:set_cookie({
+      name = "name",
+      val = "james"
+    })
+    assert(ok)
+    assert(resp.cookies[1].name == "name")
+    return resp
+  end)
+
+  local str1 = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+  http.handle_request(str1, &app)
+end
+
+do
+  local app = http.new()
+  app.req.headers["Cookie"] = "name=james; age=10"
+
+  local name = app:get_cookie("name")
+  local age = app:get_cookie("age")
+  assert(name == "james")
+  assert(age == "10")
+end

@@ -1,0 +1,33 @@
+local http = require "..http"
+
+-- These tests are reliant on the network and would fail without one
+-- This may not equate to the function not working correctly
+
+do
+  local result, err = http.send_request({
+    url = "https://dummy-json.mock.beeceptor.com/posts/1",
+    method = "get"
+  })
+  local expected = [[
+{
+    "userId": 1,
+    "id": 1,
+    "title": "Introduction to Artificial Intelligence",
+    "body": "Learn the basics of Artificial Intelligence and its applications in various industries.",
+    "link": "https://example.com/article1",
+    "comment_count": 8
+}]]
+  assert(err == "", err)
+  assert(result.status == "200")
+  assert(result.body == expected)
+end
+
+do
+  -- expected is too large so chosen to ignore it
+  local result, err = http.send_request({
+    url = "http://httpforever.com/",
+    method = "get"
+  })
+  assert(err == "", err)
+  assert(result.status == "200")
+end

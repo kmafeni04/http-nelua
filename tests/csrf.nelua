@@ -1,0 +1,35 @@
+local http = require "..http"
+
+local csrf = http.csrf
+
+local token = "16ab063e36422a30cf480a2b91c39aaffd9775ee168e5ab184d3a6ea195c7ed4"
+
+do
+  local server = http.new()
+  local result = csrf.generate_token(&server)
+  assert(result ~= "")
+  assert(#result == 64)
+end
+
+do
+  local server = http.new()
+  server.session:set_val("csrf_token", token)
+  local result = csrf.generate_token(&server)
+  local expected = token
+  assert(result == expected)
+end
+
+do
+  local server = http.new()
+  server.session:set_val("csrf_token", token)
+  server.req.params["csrf_token"] = token
+  local result = csrf.validate_token(&server)
+  assert(result)
+end
+
+do
+  local server = http.new()
+  server.req.params["csrf_token"] = token
+  local result = csrf.validate_token(&server)
+  assert(not result)
+end

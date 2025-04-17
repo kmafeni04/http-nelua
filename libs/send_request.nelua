@@ -58,6 +58,8 @@ local function parse_url(url: string): (SendAddress, string)
     elseif matched_path then
       send_addr.host = matched_path_seq[1]
       send_addr.path = matched_path_seq[2]
+    else
+      return {}, "Failed to parse host and path"
     end
   elseif url:match("^http://.*") then
     local matched, matched_seq = url:match("^http://([^/]+)/?$")
@@ -68,6 +70,8 @@ local function parse_url(url: string): (SendAddress, string)
     elseif matched_path then
       send_addr.host = matched_path_seq[1]
       send_addr.path = matched_path_seq[2]
+    else
+      return {}, "Failed to parse host and path"
     end
   else
     return {}, ("url `%s` should contain either http:// or https:// at the start"):format(url)
@@ -85,7 +89,7 @@ local SendRequest = @record{
 
 local SendResponse = @record{
   body: string,
-  status: uinteger,
+  status: string,
   headers: hashmap(string, string)
 }
 
@@ -164,7 +168,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
 
   local response_headers: hashmap(string, string)
 
-  local code: uinteger
+  local code: string
   local str: string = sb:promote()
   local i = 0
   for line in str:gmatch("([^\r\n]*)\r\n") do
@@ -172,7 +176,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
       local info_match, info_seq = line:match("HTTP/%d%.%d (%d%d%d)")
       if info_match then
         if info_seq[1]:match("%d+") then
-          code = tonumber(info_seq[1])
+          code = info_seq[1]
         end
       end
     else
@@ -184,7 +188,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
     i = i + 1
   end
 
-  if code == 0 then
+  if code == "" then
     return {}, "failed to parse http code"
   end
 
@@ -199,7 +203,6 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
 end
 
 local function send_http(req: SendRequest, send_addr: SendAddress): (SendResponse, string)
-
   local server = gethostbyname(send_addr.host)
   if server == nilptr then
     return {}, "gethostbyname error"
@@ -246,7 +249,7 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
   end
 
   local response_headers: hashmap(string, string)
-  local code: uinteger
+  local code: string
   local str: string = sb:promote()
   local i = 0
   for line in str:gmatch("([^\r\n]*)\r\n") do
@@ -254,7 +257,7 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
       local info_match, info_seq = line:match("HTTP/%d%.%d (%d%d%d)")
       if info_match then
         if info_seq[1]:match("%d+") then
-          code = tonumber(info_seq[1])
+          code = info_seq[1]
         end
       end
     else
@@ -266,7 +269,7 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
     i = i + 1
   end
 
-  if code == 0 then
+  if code == "" then
     return {}, "failed to parse http code"
   end
 

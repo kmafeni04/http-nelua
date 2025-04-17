@@ -1,0 +1,48 @@
+local http = require "..http"
+
+do
+  local app = http.new({
+    logging = http.NotSetOrBool.FALSE
+  })
+  app:get(nil, "/", function(self: *http.Server)
+    self.session:set_val("name", "james")
+    self.session:set_val("age", "10")
+    
+    return self:text(200, "ok")
+  end)
+
+  app:get(nil, "/test", function(self: *http.Server)
+    local name = self.session:get_val("name")
+    local age = self.session:get_val("age")
+    assert(name == "james")
+    assert(age == "10")
+
+    return self:text(200, "ok")
+  end)
+
+  
+  local str1 = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+  http.handle_request(str1, &app)
+
+  local str2 = "GET /test HTTP/1.1\r\nHost: localhost\r\n\r\n"
+  http.handle_request(str2, &app)
+end
+
+do
+  local app = http.new({
+    logging = http.NotSetOrBool.FALSE
+  })
+
+  app:get(nil, "/test", function(self: *http.Server)
+    local name = self.session:get_val("name")
+    local age = self.session:get_val("age")
+    assert(name == "")
+    assert(age == "")
+
+    return self:text(200, "ok")
+  end)
+
+  
+  local str = "GET /test HTTP/1.1\r\nHost: localhost\r\n\r\n"
+  http.handle_request(str, &app)
+end

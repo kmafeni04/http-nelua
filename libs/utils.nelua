@@ -2,7 +2,38 @@ require "string"
 require "math"
 require "stringbuilder"
 
-local Base64 = @record{}
+local Crypt = require ".cryptography"
+
+local Utils = @record{}
+
+function Utils.url_escape(s: string): string
+  return (string.gsub(s, "([^A-Za-z0-9_])", function(c: string)
+      return string.format("%%%%%02x", string.byte(c))
+  end))
+end
+
+function Utils.url_unescape(s: string)
+  s = s:gsub("+", " ")
+  return (string.gsub(s, "%%(%x%x)", function(hex: string)
+      return string.char(tonumber(hex, 16))
+  end))
+end
+
+function Utils.slugify(s: string)
+ local slug = (s:gsub("[%s_]+", "-"):gsub("[^%w%-]+", ""):gsub("-+", "-")):lower()
+  if slug:match("-$") then
+    slug = slug:sub(1, #slug - 1)
+  end
+  return slug
+end
+
+function Utils.sign(key: cstring, data: cstring): string
+  local len: cint
+  local hmac_result = Crypt.hmac(Crypt.sha256(), key, #key, data, #data, nilptr, &len)
+
+  local signature = Crypt.get_hex(hmac_result, len)
+  return signature
+end
 
 local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
@@ -32,7 +63,7 @@ local function bits_to_byte(bits: sequence(integer))
   return sum
 end
 
-function Base64.encode(input: string)
+function Utils.b64_encode(input: string)
   local bytes: sequence(integer)
   for i = 1, #input do
     bytes[i] = input:byte(i)
@@ -67,7 +98,7 @@ function Base64.encode(input: string)
   return sb:promote()
 end
 
-function Base64.decode(data: string)
+function Utils.b64_decode(data: string)
   data = data:gsub("=", "")
   local bits: sequence(integer)
 
@@ -101,15 +132,4 @@ function Base64.decode(data: string)
   return sb:promote()
 end
 
---[[
-do
-  local text = "hello world"
-  local encoded = Base64.encode(text)
-  print("Encoded:", encoded)
-
-  local decoded = Base64.decode(encoded)
-  print("Decoded:", decoded)
-end
-]]
-
-return Base64
+return Utils

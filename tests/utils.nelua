@@ -1,0 +1,51 @@
+local http = require("..http")
+
+local utils = http.utils
+
+do
+  local result = utils.url_escape("hello world")
+  local expected = "hello%20world"
+  assert(expected == result)
+end
+
+do
+  local result = utils.url_escape("<script><script/>")
+  local expected = "%3cscript%3e%3cscript%2f%3e"
+  assert(expected == result)
+end
+
+do
+  local result = utils.url_unescape("hello%20world")
+  local expected = "hello world"
+  assert(expected == result)
+end
+
+do
+  local result = utils.url_unescape("%3cscript%3e%3cscript%2f%3e")
+  local expected = "<script><script/>"
+  assert(expected == result)
+end
+
+do
+  local result = utils.slugify("Hello, World! Welcome to ChatGPT: AI for Everyone 🚀")
+  local expected = "hello-world-welcome-to-chatgpt-ai-for-everyone"
+  assert(expected == result)
+end
+
+do
+  local result = utils.sign("key", "data")
+  local expected = "5031fe3d989c6d1537a013fa6e739da23463fdaec3b70137d828e36ace221bd0"
+  assert(expected == result)
+end
+
+do
+  local result = utils.b64_encode("hello world")
+  local expected = "aGVsbG8gd29ybGQ="
+  assert(expected == result)
+end
+
+do
+  local result = utils.b64_decode("aGVsbG8gd29ybGQ=")
+  local expected = "hello world"
+  assert(expected == result)
+end

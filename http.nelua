@@ -5,14 +5,15 @@ require "C.stdio"
 require "os"
 require "io"
 require "hashmap"
+require "string"
 
 require ".libs.socket"
 require ".libs.unistd"
 require ".libs.threadpool"
-require ".libs.cryptography"
 
-local Base64 = require(".libs.base64")
-local send_request = require(".libs.send_request")
+local Crypt = require ".libs.cryptography"
+local send_request = require ".libs.send_request"
+local utils = require ".libs.utils"
 
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"
@@ -296,7 +297,6 @@ local function status_text(code: http.Status): string
   end
 end
 
-local http.send_request = send_request
 
 local http.NotSetOrBool = @enum{
   NOT_SET = 0,
@@ -389,36 +389,6 @@ http.Server = @record{
   before_funcs: sequence(http.BeforeFunc),
 }
 
-local http.utils = @record{}
-
-function http.utils.escape(s: string)
-  return (string.gsub(s, "([^A-Za-z0-9_])", function(c: string)
-      return string.format("%%%02x", string.byte(c))
-  end))
-end
-
-function http.utils.unescape(s: string)
-  s = s:gsub("+", " ")
-  return (string.gsub(s, "%%(%x%x)", function(hex: string)
-      return string.char(tonumber(hex, 16))
-  end))
-end
-
-function http.utils.slugify(s: string)
- return (s:gsub("[%s_]+", "-"):gsub("[^%w%-]+", ""):gsub("-+", "-")):lower()
-end
-
-function http.utils.sign(key: cstring, data: cstring): string
-  local len: cint
-  local hmac_result = HMAC(EVP_sha256(), key, #key, data, #data, nilptr, &len)
-
-  local hex = crypt_get_hex(hmac_result, len)
-  return hex
-end
-
-local http.utils.b64_encode = Base64.encode
-local http.utils.b64_decode = Base64.decode
-
 function http.Response:tostring(): string
   local status_msg = status_text(self.status)
   if self.content_type == "" then
@@ -484,34 +454,6 @@ function http.Server:get_cookie(name: string): string
     end
   end
   return ""
-end
-
-local http.utils.csrf = @record{}
-
-function http.utils.csrf.generate_token(self: *http.Server): string
-  local token = self.session:get_val("csrf_token")
-  if token ~= "" then
-    return token
-  end
-  local TOKEN_LENGTH <comptime> = 32 -- 32 bytes = 256 bits
-  local buf: [TOKEN_LENGTH]cchar
-  if RAND_bytes(&buf, #buf) ~= 1 then
-    return ""
-  end
-
-  local val = crypt_get_hex(&buf, #buf)
-  self.session:set_val("csrf_token", val)
-  return val
-end
-
-function http.utils.csrf.validate_token(self: *http.Server): boolean
-  if self.session:get_val("csrf_token") == "" then
-    return false
-  end
-  if self.req.params["csrf_token"] ~= self.session:get_val("csrf_token") then
-    return false
-  end
-  return true
 end
 
 function http.Server:set_static(dir: string, name: string)
@@ -581,9 +523,40 @@ end
 function http.Server:redirect(path: string): http.Response
   self.req.headers["Location"] = path
   return {
-    status = 302,
+    status = http.Status.Found,
     headers = self.req.headers
   }
+end
+
+local http.send_request = send_request
+local http.utils = utils
+
+local http.csrf = @record{}
+
+function http.csrf.generate_token(self: *http.Server): string
+  local token = self.session:get_val("csrf_token")
+  if token ~= "" then
+    return token
+  end
+  local TOKEN_LENGTH <comptime> = 32 -- 32 bytes = 256 bits
+  local buf: [TOKEN_LENGTH]cchar
+  if Crypt.rand_bytes(&buf, #buf) ~= 1 then
+    return ""
+  end
+
+  local val = Crypt.get_hex(&buf, #buf)
+  self.session:set_val("csrf_token", val)
+  return val
+end
+
+function http.csrf.validate_token(self: *http.Server): boolean
+  if self.session:get_val("csrf_token") == "" then
+    return false
+  end
+  if self.req.params["csrf_token"] ~= self.session:get_val("csrf_token") then
+    return false
+  end
+  return true
 end
 
 function http.handle_request(buffer_str: string, self: *http.Server)
@@ -614,7 +587,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
   if param_match then
     uri = param_seq[1]
     for _, param in param_seq[2]:gmatch("([^&=?]+)=([^&=?]+)") do
-      self.req.params[param[0]] = http.utils.unescape(param[1])
+      self.req.params[param[0]] = http.utils.url_unescape(param[1])
     end
   end
   -- request body params
@@ -624,7 +597,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       local param_str = param_seq[1] .. "&"
       for _, params in param_str:gmatch("([^&]*)&") do
         for _, param in params[0]:gmatch("(.*)=(.*)") do
-          self.req.params[param[0]] = http.utils.unescape(param[1])
+          self.req.params[param[0]] = http.utils.url_unescape(param[1])
         end
       end
     end
