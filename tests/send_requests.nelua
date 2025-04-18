@@ -2,7 +2,6 @@ local http = require "..http"
 
 -- These tests are reliant on the network and would fail without one
 -- This may not equate to the function not working correctly
-
 do
   local result, err = http.send_request({
     url = "https://dummy-json.mock.beeceptor.com/posts/1",
@@ -30,4 +29,16 @@ do
   })
   assert(err == "", err)
   assert(result.status == "200")
+end
+
+do
+  -- chunked response test
+  local result, err = http.send_request({
+    url = "https://anglesharp.azurewebsites.net/Chunked",
+    method = "get"
+  })
+  local expected = "<!DOCTYPE html>\r\n<html lang=en>\r\n<head>\r\n<meta charset='utf-8'>\r\n<title>Chunked transfer encoding test</title>\r\n</head>\r\n<body><h1>Chunked transfer encoding test</h1><h5>This is a chunked response after 100 ms.</h5><h5>This is a chunked response after 1 second. The server should not close the stream before all chunks are sent to a client.</h5></body></html>\r\n"
+  assert(err == "", err)
+  assert(result.status == "200")
+  assert(result.body == expected)
 end
