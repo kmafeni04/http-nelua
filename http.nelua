@@ -394,11 +394,21 @@ function http.Response:tostring(): string
   if self.content_type == "" then
     self.content_type = "text/html"
   end
-  local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local sb: stringbuilder
   sb:write(("HTTP/1.1 %s %s\r\n"):format(self.status, status_msg))
-  sb:write("Server: http-nelua\r\n")
-  sb:write(("Date: %s\r\n"):format(formatted_date))
+  if not self.headers:has("Server") then
+    sb:write("Server: http-nelua\r\n")
+  end
+  if not self.headers:has("Date") then
+    local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
+    sb:write(("Date: %s\r\n"):format(formatted_date))
+  end
+  if not self.headers:has("Content-type") then
+    sb:write(("Content-type: %s\r\n"):format(self.content_type))
+  end
+  if not self.headers:has("Content-Length") then
+    sb:write(("Content-Length: %d\r\n"):format(#self.content + 2))
+  end
   for k, v in pairs(self.headers) do
     if k ~= "" and v ~= "" then
       sb:write(("%s: %s\r\n"):format(k, v))
@@ -425,8 +435,7 @@ function http.Response:tostring(): string
       sb:write("\r\n")
     end
   end
-  sb:write(("Content-type: %s\r\n"):format(self.content_type))
-  sb:write(("Content-Length: %d\r\n\r\n"):format(#self.content + 2))
+  sb:write("\r\n")
   sb:write(("%s\r\n"):format(self.content))
 
   return sb:promote()
