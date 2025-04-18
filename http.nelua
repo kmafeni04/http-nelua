@@ -747,6 +747,7 @@ local function handle_client(arg: *void)
   local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
   if read_bytes == -1 then
     C.perror()
+    return
   end
 
   local str: string = &buffer
@@ -756,6 +757,7 @@ local function handle_client(arg: *void)
   local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
   if written_bytes == -1 then
     C.perror()
+    return
   end
   resp_str:destroy()
 end
