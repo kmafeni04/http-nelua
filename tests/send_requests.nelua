@@ -19,8 +19,7 @@ do
 }]]
   assert(err == "", err)
   assert(result.status == "200")
-  print(result.body)
-  -- assert(result.body == expected)
+  assert(result.body == expected)
 end
 
 do
