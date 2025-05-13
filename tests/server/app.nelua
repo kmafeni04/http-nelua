@@ -10,4 +10,38 @@ app:get("index", "/", function(self: *http.Server)
   return self:json(200, resp.body)
 end)
 
+app:get("datastar-test", "/datastar-test", function(self: *http.Server)
+  return self:html(200,
+  [[<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HTML Page</title>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+</head>
+<body>
+  <input data-bind-foo />
+  <button data-on-click="@get('/stream')">get</button>
+</body>
+</html>]])
+end)
+
+app:get("datastar-stream", "/datastar-stream", function(self: *http.Server)
+
+  local headers: hashmap(string, string)
+  headers["Content-Length"] = ""
+  local resp: http.Response = {
+    status = 200,
+    content_type = "text/event-stream",
+    headers = headers
+  }
+  self:write(resp:tostring())
+  for i = 1, 10 do
+    self:write("event: datastar-merge-signals\n")
+    self:write(("data: signals {foo: %d}\n\n"):format(i))
+    os.sleep(1)
+  end
+  return resp
+end)
+
 app:serve()

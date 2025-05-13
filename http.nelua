@@ -1,6 +1,7 @@
 ## pragmas.nogc = true
 
-require "C.stdio"
+require "C.string"
+require "C.errno"
 
 require "os"
 require "io"
@@ -387,6 +388,8 @@ http.Server = @record{
   handle_404: http.ActionFn,
   session: Session,
   before_funcs: sequence(http.BeforeFn),
+  _fd: uinteger,
+  written: boolean
 }
 
 function http.Response:tostring(): string
@@ -396,17 +399,17 @@ function http.Response:tostring(): string
   end
   local sb: stringbuilder
   sb:write(("HTTP/1.1 %s %s\r\n"):format(self.status, status_msg))
-  if not self.headers:has("Server") then
+  if not (self.headers:has("Server") and self.headers["Server"] == "") then
     sb:write("Server: http-nelua\r\n")
   end
-  if not self.headers:has("Date") then
+  if not (self.headers:has("Date") and self.headers["Date"] == "") then
     local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
     sb:write(("Date: %s\r\n"):format(formatted_date))
   end
-  if not self.headers:has("Content-type") then
+  if not (self.headers:has("Content-type") and self.headers["Content-type"] == "") then
     sb:write(("Content-type: %s\r\n"):format(self.content_type))
   end
-  if not self.headers:has("Content-Length") then
+  if not (self.headers:has("Content-Length") and self.headers["Content-Length"] == "") then
     sb:write(("Content-Length: %d\r\n"):format(#self.content + 2))
   end
   for k, v in pairs(self.headers) do
@@ -493,6 +496,15 @@ end
     end
   end
 ## end
+
+function http.Server:write(s: string)
+  local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
+  if written_bytes == -1 then
+    local err_msg = C.strerror(C.errno)
+    return
+  end
+  self.written = true
+end
 
 function http.Server:before_filter(fn: http.BeforeFn)
   self.before_funcs:push(fn)
@@ -743,10 +755,12 @@ local function handle_client(arg: *void)
   defer
     close(accept_fd)
   end
+  self._fd = accept_fd
 
   local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
   if read_bytes == -1 then
-    C.perror()
+    local err_msg = C.strerror(C.errno)
+    io.stderr:write(err_msg .. "\n")
     return
   end
 
@@ -754,11 +768,10 @@ local function handle_client(arg: *void)
 
   local resp_str = http.handle_request(str, self)
 
-  local written_bytes = write(accept_fd, (@cstring)(resp_str), #resp_str)
-  if written_bytes == -1 then
-    C.perror()
-    return
+  if not self.written then
+    self:write(resp_str)
   end
+  self.written = false
   resp_str:destroy()
 end
 
@@ -767,7 +780,8 @@ function http.Server:serve()
   local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
 
   if sock_fd == -1 then
-    C.perror()
+    local err_msg = C.strerror(C.errno)
+    io.stderr:write(err_msg .. "\n")
     os.exit(1)
   end
 
@@ -786,7 +800,8 @@ function http.Server:serve()
   local bind_ok = bind(sock_fd, (@*sockaddr)(&host_addr), host_addr_len)
 
   if bind_ok ~= 0 then
-    C.perror()
+    local err_msg = C.strerror(C.errno)
+    io.stderr:write(err_msg .. "\n")
     os.exit(1)
   end
 
@@ -798,7 +813,8 @@ function http.Server:serve()
   local listen_ok = listen(sock_fd, MAX_CONS)
 
   if listen_ok ~= 0 then
-    C.perror()
+    local err_msg = C.strerror(C.errno)
+    io.stderr:write(err_msg .. "\n")
     os.exit(1)
   end
 
@@ -810,7 +826,8 @@ function http.Server:serve()
     
     local accept_fd = accept(sock_fd, (@*sockaddr)(&client_addr), &client_addr_len)
     if accept_fd == -1 then
-      C.perror()
+      local err_msg = C.strerror(C.errno)
+      io.stderr:write(err_msg .. "\n")
       continue
     end
 
