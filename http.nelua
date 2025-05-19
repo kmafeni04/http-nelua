@@ -1,3 +1,4 @@
+-- TODO: Add extra functionality to the url_for function
 ## pragmas.nogc = true
 
 require "C.string"
@@ -497,22 +498,44 @@ end
   end
 ## end
 
-function http.Server:write(s: string)
+function http.Server:write(s: string): string
   local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
   if written_bytes == -1 then
     local err_msg = C.strerror(C.errno)
-    return
+    return (@string)(err_msg)
   end
   self.written = true
+  return ""
 end
 
 function http.Server:before_filter(fn: http.BeforeFn)
   self.before_funcs:push(fn)
 end
 
-function http.Server:url_for(name: string): string
+local http.Server.UrlForOpts = @record{
+  route_params: hashmap(string, string),
+  query_params: hashmap(string, string)
+}
+
+function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string
   if self.named_routes:has(name) then
-    return self.named_routes[name]
+    local sb: stringbuilder
+    local url = self.named_routes[name]
+    url = url:gsub(":([^/]+)", opts.route_params)
+    url = url:gsub("([%*]+)", opts.route_params, 1)
+    sb:write(url)
+    local i = 0
+    for k, v in pairs(opts.query_params) do
+      if i == 0 then
+        sb:write("?")
+      end
+      sb:writef("%s=%s&", k, v)
+      i = i + 1
+    end
+    if i > 0 then
+      sb:rollback(1)
+    end
+    return sb:promote()
   end
   return ""
 end

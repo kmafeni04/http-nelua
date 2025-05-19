@@ -72,7 +72,7 @@ app:get(nil, "/", function(self: *http.Server): http.Response
   return self:text(http.Status.OK, "hello, world")
 end)
 ```
-- name: This can be provided to set a name for a route, usually to be used with the [http.Server:url_for](#httpserverurlforname-string-string) function
+- name: This can be provided to set a name for a route, usually to be used with the [http.Server:url_for](#httpserverurlfor) function
 - route: The actual route that will be called
 - action: The function to be called when the route is hit
 
@@ -90,9 +90,46 @@ app:before_filter(function(self: *http.Server): (boolean, http.Response)
   return false, {}
 end)
 ```
-#### http.Server:url_for(name: string): string
+
+#### http.Server:write
+
+```lua
+function http.Server:write(s: string): string end
+```
+
+Function to write directly to the client by its file descriptor
+
+
+#### http.Server:url_for
+
+```lua
+  function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string end
+```
 
 This function returns the route of the relevant name
+`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params
+
+```lua
+app:get("get_params", "/get_params", function(self: *http.Server)
+  local route_params: hashmap(string, string)
+  route_params["id"]   = "10"
+  route_params["name"] = "james"
+  route_params["*"]    = "splat"
+
+  local query_params: hashmap(string, string)
+  query_params["id"]   = "10"
+  query_params["name"] = "james"
+  return self:html(200, ("<a href='%s'>link</a>"):format(self:url_for("params", {
+    route_params = route_params,
+    query_params = query_params
+  })))
+end)
+
+app:get("params", "/params/:id/:name/*", function(self: *http.Server)
+  return self:text(200, self.req.params["id"] .. " " .. self.req.params["name"] .. " " .. self.req.params["*"])
+end)
+-- Should return "/params/10/james/splat?id=10&name=james"
+```
 
 ```lua
 app:get(nil, "/", function(self: *http.Server): http.Response
@@ -556,6 +593,14 @@ local http.Status = @enum{
   LoopDetected = 508,
   NotExtended = 510,
   NetworkAuthenticationRequired = 511,
+}
+```
+
+#### http.Server.UrlForOpts
+```lua
+local http.Server.UrlForOpts = @record{
+  route_params: hashmap(string, string),
+  query_params: hashmap(string, string)
 }
 ```
 
