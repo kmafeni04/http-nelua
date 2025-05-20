@@ -354,16 +354,16 @@ local Session = @record{
   send: boolean
 }
 
-function Session:set_val(name: string, val: string): (boolean, string)
+function Session:set_val(name: string, val: string): string
   if name == "" then
-    return false, "A session value cannot have an empty string for its name"
+    return "A session value cannot have an empty string for its name"
   end
   if val == "" then
-    return false, "A session value cannot have an empty string for its val"
+    return "A session value cannot have an empty string for its val"
   end
   self.vals[name] = val
   self.send = true
-  return true, ""
+  return ""
 end
 
 function Session:get_val(name: string): string

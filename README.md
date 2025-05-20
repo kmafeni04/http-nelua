@@ -215,7 +215,7 @@ function(self: *http.Server): http.Response
 end
 ```
 
-#### Session:set_val(name: string, val: string): (boolean, string)
+#### Session:set_val(name: string, val: string): string
 
 This function is used to set values that will be stored in the sesssion
 
