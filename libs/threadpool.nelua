@@ -1,9 +1,0 @@
-## cdefine "THREADPOOL_IMPLEMENTATION"
-## cinclude "./threadpool.h"
-
-global Task <cimport, nodecl> = @record{}
-global ThreadPool <cimport, nodecl> = @record{}
-global thread_func_t <cimport, ctypedef, nodecl> = @function(arg: *void): void
-global function threadpool_init(pool: *ThreadPool,  num_threads: integer, queue_size: integer): integer <cimport, nodecl> end
-global function threadpool_enqueue(pool: *ThreadPool, func: function(arg: *void), arg: *void): void <cimport, nodecl> end
-global function threadpool_shutdown(pool: *ThreadPool): void <cimport, nodecl> end

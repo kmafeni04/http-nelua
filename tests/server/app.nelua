@@ -3,6 +3,10 @@ local http = require "...http"
 local app = http.new()
 
 app:get("index", "/", function(self: *http.Server)
+  return self:text(200, "hello world")
+end)
+
+app:get("jsonplaceholder", "/jsonplaceholder", function(self: *http.Server)
   local resp = http.send_request({
     url = "https://jsonplaceholder.typicode.com/todos",
     method = "get"
