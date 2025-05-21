@@ -34,7 +34,6 @@ The `config` param can be ommited and default values will be used and is of type
 local http = require "path.to.http"
 
 local app = http.new({
-  threads = 7,
   secret = os.getenv("SECRET"),
   session_name = "my_app"
 })
@@ -306,7 +305,7 @@ end)
 
 This function takes a [SendRequest](#sendrequest), makes either an http or https request and returns a [SendResponse](#sendresponse)
 
-Keep note that this function is not multithreaded and will block whatever route you call it on until the request is processed
+Keep note that this function will block whatever route you call it on until the request is completed
 
 ```lua
 local result, err = http.send_request({
@@ -388,7 +387,6 @@ local http.NotSetOrBool = @enum{
 ```lua
 local http.Config = @record{
   port: uinteger,
-  threads: uinteger,
   bind_host: string,
   secret: string,
   session_name: string,
@@ -396,7 +394,6 @@ local http.Config = @record{
 }
 ```
 - port: The port you want the server to run on, default is `8080`
-- threads: The number of threads used, default is `2`
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
 - session_name: Name of cookie used to store the session, default is `http_session`

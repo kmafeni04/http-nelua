@@ -1,6 +1,3 @@
--- TODO: Add extra functionality to the url_for function
-## pragmas.nogc = true
-
 require "C.string"
 require "C.errno"
 
@@ -11,7 +8,7 @@ require "string"
 
 require ".libs.socket"
 require ".libs.unistd"
-require ".libs.threadpool"
+require ".libs.poll"
 
 local Crypt = require ".libs.cryptography"
 local send_request = require ".libs.send_request"
@@ -342,7 +339,6 @@ local Route = @record{
 
 local http.Config = @record{
   port: uinteger,
-  threads: uinteger,
   bind_host: string,
   secret: string,
   session_name: string,
@@ -763,110 +759,130 @@ function http.handle_request(buffer_str: string, self: *http.Server)
   return resp_str
 end
 
-local ConnInfo = @record{
-  server: *http.Server,
-  fd: uinteger 
-}
-
-local function handle_client(arg: *void)
-  local conn_info = $((@*ConnInfo)(arg))
-  local self: *http.Server = conn_info.server
-  local accept_fd: uinteger = conn_info.fd
-  local BUFFER_LEN <comptime> = 2048
-  local buffer: [BUFFER_LEN]cchar
-
-  defer
-    close(accept_fd)
-  end
-  self._fd = accept_fd
-
-  local read_bytes = read(accept_fd, &buffer, BUFFER_LEN)
-  if read_bytes == -1 then
-    local err_msg = C.strerror(C.errno)
-    io.stderr:write(err_msg .. "\n")
-    return
-  end
-
-  local str: string = &buffer
-
-  local resp_str = http.handle_request(str, self)
-
-  if not self.written then
-    self:write(resp_str)
-  end
-  self.written = false
-  resp_str:destroy()
-end
-
-
 function http.Server:serve()
-  local sock_fd = socket(AF_INET, SOCK_STREAM, 0)
+  local listen_fd: integer, new_fd: integer
+  local server_addr: sockaddr_in, client_addr: sockaddr_in
+  local client_len: cuint = #sockaddr_in
+  local MAX_CLIENTS <comptime> = 1024
 
-  if sock_fd == -1 then
+  local general_allocator: GeneralAllocator
+  local fds: *[0]pollfd = (@*[0]pollfd)(general_allocator:alloc(MAX_CLIENTS * #pollfd))
+  local nfds = 1
+  local i = 0
+
+  listen_fd = socket(AF_INET, SOCK_STREAM, 0)
+  if (listen_fd < 0) then
     local err_msg = C.strerror(C.errno)
     io.stderr:write(err_msg .. "\n")
     os.exit(1)
   end
 
-  local optval: integer = 1
+  local opt = 1
   local sol_socket = 1
   local so_reuseaddr = 2
-  setsockopt(sock_fd, sol_socket, so_reuseaddr, &optval, #integer)
+  setsockopt(listen_fd, sol_socket, so_reuseaddr, &opt, #integer)
 
-  local host_addr: sockaddr_in
-  host_addr.sin_family = AF_INET
-  host_addr.sin_port = htons(self.config.port)
-  host_addr.sin_addr.s_addr = htonl(inet_addr(self.config.bind_host))
+  C.memset(&server_addr, 0, #sockaddr_in)
+  server_addr.sin_family = AF_INET
+  server_addr.sin_addr.s_addr = htonl(inet_addr(self.config.bind_host))
+  server_addr.sin_port = htons(self.config.port)
 
-  local host_addr_len: cuint = #sockaddr_in
-
-  local bind_ok = bind(sock_fd, (@*sockaddr)(&host_addr), host_addr_len)
-
-  if bind_ok ~= 0 then
+  if bind(listen_fd, (@*sockaddr)(&server_addr), #sockaddr_in) < 0 then
     local err_msg = C.strerror(C.errno)
     io.stderr:write(err_msg .. "\n")
     os.exit(1)
   end
 
-  local client_addr: sockaddr_in
-  local client_addr_len: cuint = #sockaddr_in
-
   local MAX_CONS <const> = 128
-
-  local listen_ok = listen(sock_fd, MAX_CONS)
-
-  if listen_ok ~= 0 then
+  if listen(listen_fd, MAX_CONS) < 0 then
     local err_msg = C.strerror(C.errno)
     io.stderr:write(err_msg .. "\n")
     os.exit(1)
+  end
+
+  fds[0].fd = listen_fd
+  fds[0].events = POLLIN
+
+  for i = 1, <MAX_CLIENTS do
+    fds[i].fd = -1
   end
 
   print("Server started on http://localhost:" .. self.config.port)
 
-  local pool: ThreadPool
-  threadpool_init(&pool, self.config.threads, MAX_CONS)
   while true do
-    
-    local accept_fd = accept(sock_fd, (@*sockaddr)(&client_addr), &client_addr_len)
-    if accept_fd == -1 then
+    local poll_count = poll(fds, nfds, -1)
+    if (poll_count < 0) then
       local err_msg = C.strerror(C.errno)
       io.stderr:write(err_msg .. "\n")
-      continue
+      os.exit(1)
     end
 
-    local conn_info = new(ConnInfo)
-    conn_info.server = self
-    conn_info.fd = accept_fd
+    if (fds[0].revents & POLLIN == 1) then
+      new_fd = accept(listen_fd, (@*sockaddr)(&client_addr), &client_len)
+      if (new_fd < 0) then
+        local err_msg = C.strerror(C.errno)
+        io.stderr:write(err_msg .. "\n")
+        continue
+      end
+      for i = 1, < MAX_CLIENTS do
+        if (fds[i].fd == -1) then
+          fds[i].fd = new_fd
+          fds[i].events = POLLIN
+          if (i >= nfds) then
+            nfds = i + 1
+          end
+          break
+        end
+      end
+      if (i == MAX_CLIENTS) then
+        io.stderr:write("Too many connections\n")
+        close(new_fd)
+      end
+      poll_count = poll_count - 1
+      if (poll_count <= 0) then
+        continue
+      end
+    end
 
-    threadpool_enqueue(&pool, handle_client, conn_info)
+    for i = 1, < nfds do
+      if (fds[i].fd == -1) then
+        continue
+      end
+
+      if (fds[i].revents & POLLIN == 1) then
+        local buffer: [1024]cchar
+        local bytes = read(fds[i].fd, &buffer, #buffer - 1)
+        if (bytes <= 0) then
+          close(fds[i].fd)
+          fds[i].fd = -1
+        else
+          buffer[bytes] = 0
+          local str: string = &buffer
+          self._fd = fds[i].fd
+          
+          local resp_str = http.handle_request(str, self)
+
+          if not self.written then
+            self:write(resp_str)
+          end
+          self.written = false
+          resp_str:destroy()
+          self._fd = 0
+        end
+        poll_count = poll_count - 1
+        if (poll_count <= 0) then
+          break
+        end
+      end
+    end
   end
-  -- threadpool_shutdown(&pool)
-  -- close(sock_fd)
+
+  general_allocator:dealloc(fds)
+  close(listen_fd)
 end
 
 function http.new(config: http.Config): http.Server
   config.port = config.port == 0 and 8080 or config.port
-  config.threads = config.threads == 0 and 2 or config.threads
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
   config.session_name = config.session_name == "" and "http_session" or config.session_name
   config.secret = config.secret == "" and "please-change-me" or config.secret

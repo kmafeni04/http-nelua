@@ -3,6 +3,13 @@ local http = require "...http"
 local app = http.new()
 
 app:get("index", "/", function(self: *http.Server)
+  return self:html(
+    200,
+    '<!DOCTYPE HTML><html lang="en"><head><title>Lapis Page</title></head><body><div>&lt;h1&gt;hello&lt;/h1&gt;</div></body></html>'
+  )
+end)
+
+app:get("jsonplaceholder", "/jsonplaceholder", function(self: *http.Server)
   local resp = http.send_request({
     url = "https://jsonplaceholder.typicode.com/todos",
     method = "get"
@@ -40,7 +47,7 @@ app:get("datastar-test", "/datastar-test", function(self: *http.Server)
 </head>
 <body>
   <input data-bind-foo />
-  <button data-on-click="@get('/stream')">get</button>
+  <button data-on-click="@get('/datastar-stream')">get</button>
 </body>
 </html>]])
 end)
