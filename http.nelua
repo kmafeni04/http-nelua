@@ -377,6 +377,7 @@ http.Server = @record{
   var_routes: hashmap(string, Route),
   named_routes: hashmap(string, string),
   req: record{
+    method: string,
     headers: hashmap(string, string),
     current_path: string,
     params: hashmap(string, string),
@@ -439,6 +440,14 @@ function http.Response:tostring(): string
   sb:write(("%s\r\n"):format(self.content))
 
   return sb:promote()
+end
+
+function http.Response:set_header(key: string, val: string): (boolean, string)
+  if key == "" then
+    return false, "Key cannot be an empty string"
+  end
+  self.headers[key] = val
+  return true, ""
 end
 
 function http.Response:set_cookie(c: http.Cookie): (boolean, string)
@@ -620,6 +629,8 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
     i = i + 1
   end
+
+  self.req.method = method
   self.req.headers = request_headers
   self.req.current_path = uri
   -- query params
