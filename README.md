@@ -390,14 +390,14 @@ local http.Config = @record{
   bind_host: string,
   secret: string,
   session_name: string,
-  logging: http.NotSetOrBool
+  log: http.NotSetOrBool
 }
 ```
 - port: The port you want the server to run on, default is `8080`
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
 - session_name: Name of cookie used to store the session, default is `http_session`
-- logging: This determines whether the server will log the request information to the console, default is [http.NotSetOrBool](#httpnotsetorbool).NOT_SET
+- log: This determines whether the server will log the request information to the console, default is [http.NotSetOrBool](#httpnotsetorbool).NOT_SET
 
 #### http.Server
 

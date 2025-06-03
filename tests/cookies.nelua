@@ -2,7 +2,7 @@ local http = require "..http"
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:get(nil, "/", function(self: *http.Server)

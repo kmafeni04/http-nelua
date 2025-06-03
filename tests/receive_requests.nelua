@@ -2,7 +2,7 @@ local http = require("..http")
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:get(nil, "/", function(self: *http.Server)
@@ -21,7 +21,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:post(nil, "/", function(self: *http.Server)
@@ -41,7 +41,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:get(nil, "/test", function(self: *http.Server)
@@ -60,7 +60,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:get(nil, "/test/:id/:name", function(self: *http.Server)
@@ -92,7 +92,7 @@ do
 </html>]]
 
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   local str = "GET /test HTTP/1.1\r\nHost: localhost\r\n\r\n"
@@ -107,7 +107,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:set_static(#[lfs.currentdir()]# .. "/test-files", "static")
@@ -124,7 +124,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:set_static(#[lfs.currentdir()]# .. "/test-files", "static")
@@ -154,7 +154,7 @@ do
 </html>]]
 
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   local str = "invalid string"
@@ -169,7 +169,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:get("index", "/", function(self: *http.Server)
@@ -183,7 +183,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:before_filter(function(self: *http.Server): (boolean, http.Response)

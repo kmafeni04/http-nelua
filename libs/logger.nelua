@@ -1,0 +1,30 @@
+--- ## logger.nelua
+
+--- ### logger record
+--- The logger module
+---`
+local logger = @record{}
+---`
+
+--- ### logger.NotSetOrBool
+--- Used to determine if the logger should print to console or not
+---`
+local logger.NotSetOrBool = @enum{
+  NOT_SET = 0,
+  TRUE,
+  FALSE
+}
+---`
+
+--- ### logger.log
+--- If the `log` is not set or set to true, will print `s`
+---`
+function logger.log(log: logger.NotSetOrBool, s: string)
+---`
+  switch log do
+    case logger.NotSetOrBool.NOT_SET, logger.NotSetOrBool.TRUE then
+      print(s)
+  end
+end
+
+return logger

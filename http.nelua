@@ -13,6 +13,7 @@ require ".libs.poll"
 local Crypt = require ".libs.cryptography"
 local send_request = require ".libs.send_request"
 local utils = require ".libs.utils"
+local logger = require ".libs.logger"
 
 local mime_types: hashmap(string, string)
 mime_types["aac"] = "audio/aac"
@@ -342,7 +343,7 @@ local http.Config = @record{
   bind_host: string,
   secret: string,
   session_name: string,
-  logging: http.NotSetOrBool
+  log: http.NotSetOrBool
 }
 
 local Session = @record{
@@ -695,8 +696,8 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       send_session(self, &resp)
       resp_str = resp:tostring()
       status_code = resp.status
-      if method ~= "" and self.config.logging == http.NotSetOrBool.TRUE then
-        print(("[%s] %s %s %s"):format(status_code, method, uri, version))
+      if method ~= "" then
+        logger.log(self.config.log, ("[%s] %s %s %s"):format(status_code, method, uri, version))
       end
       return resp_str
     end
@@ -764,8 +765,8 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
   end
 
-  if method ~= "" and self.config.logging == 1 then
-    print(("[%s] %s %s %s"):format(status_code, method, uri, version))
+  if method ~= "" then
+    logger.log(self.config.log, ("[%s] %s %s %s"):format(status_code, method, uri, version))
   end
   return resp_str
 end
@@ -897,7 +898,6 @@ function http.new(config: http.Config): http.Server
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
   config.session_name = config.session_name == "" and "http_session" or config.session_name
   config.secret = config.secret == "" and "please-change-me" or config.secret
-  config.logging = config.logging == 0 and 1 or config.logging
   local s: http.Server
   s.config = config
   s.static_dir = "./static"

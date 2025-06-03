@@ -2,7 +2,7 @@ local http = require "..http"
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
   app:get(nil, "/", function(self: *http.Server)
     self.session:set_val("name", "james")
@@ -30,7 +30,7 @@ end
 
 do
   local app = http.new({
-    logging = http.NotSetOrBool.FALSE
+    log = http.NotSetOrBool.FALSE
   })
 
   app:get(nil, "/test", function(self: *http.Server)
