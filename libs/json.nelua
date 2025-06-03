@@ -1,0 +1,1073 @@
+require "io"
+require "utf8"
+
+local function pos_to_line_char(pos: integer, content: string)
+  local s_line = 1
+  local pos_at_line = 0
+  local text = content:sub(1, pos)
+  for line in text:gmatch("[^\r\n]*\r?\n") do
+    pos_at_line = pos_at_line + #line
+    s_line = s_line + 1
+  end
+  local s_char = pos - pos_at_line
+  return s_line, s_char
+end
+
+local unescape_hash: hashmap(string, string)
+unescape_hash["n"] ="\n"
+unescape_hash["r"] ="\r"
+unescape_hash["t"] ="\t"
+unescape_hash["b"] ="\b"
+unescape_hash["f"] ="\f"
+unescape_hash['"'] ='"'
+unescape_hash["\\"] ="\\"
+unescape_hash["/"] ="/"
+
+local function unescape_str(str: string)
+  str = str:gsub('\\[nrtbf"\\/]', unescape_hash)
+  str = str:gsub("\\u(%x+)", function(h: string) -- Unicode characters
+    return utf8.char(tonumber(h, 16))
+  end)
+
+  return str
+end
+
+local TokenType = @enum{
+  NULL = 0,
+  FALSE,
+  TRUE,
+  OPEN_BRACKET,
+  CLOSE_BRACKET,
+  OPEN_BRACE,
+  CLOSE_BRACE,
+  STRING,
+  NUMBER,
+  COMMA,
+  COLON,
+  EOF
+}
+
+local Token = @record{
+  val: string,
+  type: TokenType,
+  start_pos: uinteger,
+  end_pos: uinteger
+}
+
+local function token_type_tostring(ttype: TokenType)
+  switch ttype do
+    case TokenType.NULL then
+      return "NULL"
+    case TokenType.FALSE then
+      return "FALSE"
+    case TokenType.TRUE then
+      return "TRUE"
+    case TokenType.OPEN_BRACKET then
+      return "OPEN_BRACKET"
+    case TokenType.CLOSE_BRACKET then
+      return "CLOSE_BRACKET"
+    case TokenType.OPEN_BRACE then
+      return "OPEN_BRACE"
+    case TokenType.CLOSE_BRACE then
+      return "CLOSE_BRACE"
+    case TokenType.STRING then
+      return "STRING"
+    case TokenType.NUMBER then
+      return "NUMBER"
+    case TokenType.COMMA then
+      return "COMMA"
+    case TokenType.COLON then
+      return "COLON"
+    case TokenType.EOF then
+      return "EOF"
+    else
+      return ("Unknown token type `%d`"):format(ttype)
+  end
+end
+
+local function tokenize(str: string): (sequence(Token), string)
+  local tokens:sequence(Token)
+  local index = 1
+
+  while index <= #str do
+    local current_char = str:sub(index, index)
+    if current_char == "[" then
+      tokens:push({ val = current_char, type = TokenType.OPEN_BRACKET, start_pos = index, end_pos = index })
+    elseif current_char == "]" then
+      tokens:push({ val = current_char, type = TokenType.CLOSE_BRACKET, start_pos = index, end_pos = index })
+    elseif current_char == "{" then
+      tokens:push({ val = current_char, type = TokenType.OPEN_BRACE, start_pos = index, end_pos = index })
+    elseif current_char == "}" then
+      tokens:push({ val = current_char, type = TokenType.CLOSE_BRACE, start_pos = index, end_pos = index })
+    elseif current_char:match("[%a_]") then
+      local s_pos = index
+      local val = current_char
+      while str:sub(index + 1, index + 1):match("[%w_]") do
+        val = val .. str:sub(index + 1, index + 1)
+        index = index + 1
+      end
+      if val == "null" then
+        tokens:push({ val = val, type = TokenType.NULL, start_pos = s_pos, end_pos = index })
+      elseif val == "false" then
+        tokens:push({ val = val, type = TokenType.FALSE, start_pos = s_pos, end_pos = index })
+      elseif val == "true" then
+        tokens:push({ val = val, type = TokenType.TRUE, start_pos = s_pos, end_pos = index })
+      else
+        local content = str:sub(1, index)
+        local current_token = content:sub(s_pos, index)
+        local line, char = pos_to_line_char(s_pos, content)
+        return (@sequence(Token))({}), ("[%d:%d]: Unknown token `%s`"):format(line, char, current_token)
+      end
+    elseif current_char == '"' then
+      local s_pos = index
+      local val = ""
+      while str:sub(index + 1, index + 1) ~= '"' do
+        if index >= #str then
+          local content = str:sub(1, index)
+          local line, char = pos_to_line_char(s_pos, content)
+          return (@sequence(Token))({}), ("[%d:%d]: Unexpected end of file"):format(line, char)
+        end
+        if str:sub(index + 1, index + 1) == "\n" then
+          local content = str:sub(1, index)
+          local line, char = pos_to_line_char(s_pos, content)
+          return (@sequence(Token))({}), ("[%d:%d]: Multiline strings are not allowed"):format(line, char)
+        end
+        if str:sub(index + 1, index + 1) == "\\" then
+          val = val .. "\\"
+          if str:sub(index + 2, index + 2) == '"' then
+            val = val .. '"'
+            index = index + 1
+          end
+          index = index + 1
+        end
+        val = val .. str:sub(index + 1, index + 1)
+        index = index + 1
+      end
+      val = unescape_str(val)
+      index = index + 1
+      tokens:push({ val = val, type = TokenType.STRING, start_pos = s_pos, end_pos = index })
+    elseif current_char:match("[%-%d]") then
+      local s_pos = index
+      local val = current_char
+      local decimal = false
+      local exponent = false
+      local after_exp = false
+      local err = false
+      while str:sub(index + 1, index + 1):match("[%d%.eE%-%+]") do
+        local next_char = str:sub(index + 1, index + 1)
+
+        if next_char == "." then
+          if decimal then
+            err = true
+          end
+          decimal = true
+        elseif next_char:match("[eE]") then
+          if exponent then
+            err = true
+          end
+          exponent = true
+          after_exp = true
+        elseif after_exp and next_char:match("[^%-%+%d]") then
+          err = true
+        end
+        val = val .. str:sub(index + 1, index + 1)
+        index = index + 1
+      end
+      if current_char == "-" and #val == 1 then
+        err = true
+      end
+      if val:match("^0%d") then
+        err = true
+      end
+      if err then
+        local content = str:sub(1, index)
+        local current_token = content:sub(s_pos, index)
+        local line, char = pos_to_line_char(s_pos, content)
+        return (@sequence(Token))({}), ("[%d:%d]: Unknown token `%s`"):format(line, char, current_token)
+      else
+        tokens:push({ val = val, type = TokenType.NUMBER, start_pos = s_pos, end_pos = index })
+      end
+    elseif current_char == "," then
+      tokens:push({ val = current_char, type = TokenType.COMMA, start_pos = index, end_pos = index })
+    elseif current_char == ":" then
+      tokens:push({ val = current_char, type = TokenType.COLON, start_pos = index, end_pos = index })
+    elseif current_char:match("%s") then
+    else
+      local content = str:sub(1, index)
+      local current_char = content:sub(index, index)
+      local line, char = pos_to_line_char(index, content)
+      return (@sequence(Token))({}), ("[%d:%d]: Unknown token `%s`"):format(line, char, current_char)
+    end
+    index = index + 1
+  end
+
+  tokens:push({ val = "", type = TokenType.EOF, start_pos = #str + 1, end_pos = #str + 1 })
+  return tokens, ""
+end
+
+--- ### JsonNodeType enum
+---`
+local JsonNodeType = @enum{
+  NULL = 0,
+  BOOLEAN,
+  STRING,
+  NUMBER,
+  ARRAY,
+  OBJECT
+}
+---`
+
+local function json_node_type_tostring(jntype: JsonNodeType)
+  switch jntype do
+    case JsonNodeType.BOOLEAN then
+      return "BOOLEAN"
+    case JsonNodeType.STRING then
+      return "STRING"
+    case JsonNodeType.NUMBER then
+      return "NUMBER"
+    case JsonNodeType.ARRAY then
+      return "ARRAY"
+    case JsonNodeType.OBJECT then
+      return "OBJECT"
+  end
+  return ("Unknown type `%s`"):format(jntype)
+end
+
+--- ### JsonNode record
+--- Representing an individual json node after parsing
+---`
+local JsonNode = @record{
+  val: union{
+    bol: boolean, -- accounts for NULL
+    str: string,
+    num: number,
+    arr: sequence(JsonNode),
+    obj: hashmap(string, JsonNode)
+  },
+  type: JsonNodeType
+}
+---`
+
+function JsonNode.new(node_type: JsonNodeType, value: overload(niltype, string, sequence(JsonNode), hashmap(string, JsonNode))): (JsonNode, string)
+  local node: JsonNode = {}
+  node.type = node_type
+
+  ## if value.type.is_string then
+    if node_type == JsonNodeType.NUMBER then
+      node.val.num = tonumber(value)
+    elseif node_type == JsonNodeType.BOOLEAN then
+      node.val.bol = value == "true"
+    else
+      node.val.str = value
+    end
+    return node, ""
+  ## elseif value.type.is_hashmap then
+    node.val.obj = value
+    return node, ""
+  ## elseif value.type.is_sequence then
+    node.val.arr = value
+    return node, ""
+  ## elseif value.type.is_niltype then
+    node.val.bol = false
+    return node, ""
+  ## end
+
+  return (@JsonNode)({}), ("Invalid node type `%d`"):format(node_type)
+end
+
+--[[-
+Example usage:
+
+```:lang:
+if node:is_obj() then
+  local obj = node:get_obj()
+  -- Work with object
+elseif node:is_arr() then
+  local arr = node:get_arr()
+  -- Work with array
+elseif node:is_str() then
+  local str = node:get_str()
+  -- Work with string
+elseif node:is_num() then
+  local num = node:get_num()
+  -- Work with number
+elseif node:is_bool() then
+  local bool = node:get_bool()
+  -- Work with boolean
+elseif node:is_null() then
+  -- Handle null case
+end
+```
+-]]
+
+--- ### JsonNode:is
+--- Returns a string stating the node type
+---`
+function JsonNode:is(): string
+---`
+  return json_node_type_tostring(self.type)
+end
+
+--- ### JsonNode:is_obj
+--- Returns true if node is an object
+---`
+function JsonNode:is_obj(): boolean
+---`
+  return self.type == JsonNodeType.OBJECT
+end
+
+--- ### JsonNode:is_num
+--- Returns true if node is a number
+---`
+function JsonNode:is_num(): boolean
+---`
+  return self.type == JsonNodeType.NUMBER
+end
+
+--- ### JsonNode:is_str
+--- Returns true if node is a string
+---`
+function JsonNode:is_str(): boolean
+---`
+  return self.type == JsonNodeType.STRING
+end
+
+--- ### JsonNode:is_arr
+--- Returns true if node is an array
+---`
+function JsonNode:is_arr(): boolean
+---`
+  return self.type == JsonNodeType.ARRAY
+end
+
+--- ### JsonNode:is_bool
+--- Returns true if node is a boolean
+---`
+function JsonNode:is_bool(): boolean
+---`
+  return self.type == JsonNodeType.BOOLEAN
+end
+
+--- ### JsonNode:is_null
+--- Returns true if node is a null value
+---`
+function JsonNode:is_null(): boolean
+---`
+  return self.type == JsonNodeType.NULL
+end
+
+
+--- ### JsonNode:get_obj
+--- Returns a hashmap of strings to JsonNodes from the JsonNode
+---`
+function JsonNode:get_obj(): hashmap(string, JsonNode)
+---`
+  return self.val.obj
+end
+
+--- ### JsonNode:get_num
+--- Returns a number from the JsonNode
+---`
+function JsonNode:get_num(): number
+---`
+  return self.val.num
+end
+
+--- ### JsonNode:get_str
+--- Returns a string from the JsonNode
+---`
+function JsonNode:get_str(): string
+---`
+  return self.val.str
+end
+
+--- ### JsonNode:get_arr
+--- Returns an array from the JsonNode
+---`
+function JsonNode:get_arr(): sequence(JsonNode)
+---`
+  return self.val.arr
+end
+
+--- ### JsonNode:get_bool
+--- Returns a boolean from the JsonNode
+---`
+function JsonNode:get_bool(): boolean
+---`
+  return self.val.bol
+end
+
+--- ### JsonNode:get_null
+--- Returns a null value(false) from the JsonNode
+---`
+function JsonNode:get_null(): boolean
+---`
+  return self.val.bol
+end
+
+local Parser = @record{
+  content: string,
+  tokens: sequence(Token),
+  index: *uinteger
+}
+
+function Parser.new(content: string): (Parser, string)
+  local tokens, err = tokenize(content)
+
+  if err ~= "" then
+    return (@Parser)(), err
+  end
+
+  local parser: Parser
+
+  parser.content = content
+  parser.tokens = tokens
+  parser.index = (@*uinteger)(new(uinteger))
+  $(parser.index) = 1
+
+  return parser, ""
+end
+
+function Parser:destroy()
+  delete(self.index)
+  self.tokens:destroy()
+  $self = (@Parser)()
+end
+
+-- Forward declared mutually called functions
+local Parser.parse_from_token: function(self: Parser, token: Token): (JsonNode, string)
+local Parser.parse_object: function(self: Parser):(JsonNode, string)
+local Parser.parse_array: function(self: Parser):(JsonNode, string)
+
+function Parser:peek()
+  local index = $(self.index)
+  if index <= #self.tokens then
+    return self.tokens[index]
+  end
+  return (@Token)({ val = "", type = TokenType.EOF, start_pos = #self.content + 1, end_pos = #self.content + 1 })
+end
+
+function Parser:peek_next(): Token
+  local index = $(self.index)
+  if index + 1 <= #self.tokens then
+    return self.tokens[index + 1]
+  end
+  return (@Token)({ val = "", type = TokenType.EOF, start_pos = #self.content + 1, end_pos = #self.content + 1 })
+end
+
+function Parser:advance()
+  local index = self.index
+  if $index <= #self.tokens then
+    local current_token = self.tokens[$index]
+    $index = $index + 1
+    return current_token
+  end
+  return (@Token)({ val = "", type = TokenType.EOF, start_pos = #self.content + 1, end_pos = #self.content + 1 })
+end
+
+function Parser:advance_comma_unless(ttype: TokenType): (Token, string)
+  if self:peek().type == TokenType.COMMA then
+      if self:peek_next().type == ttype or self:peek_next().type == TokenType.EOF then
+        local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+        return self:peek(), ("[%d:%d]: Trailing comma"):format(line, char)
+      end
+    return self:advance(), ""
+  end
+
+  if self:peek().type ~= ttype and self:peek().type ~= TokenType.EOF then
+    local ttype_str = token_type_tostring(self:peek().type)
+    local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+    return self:peek() ,("[%d:%d]: Expected `COMMA`, got `%s`"):format(line, char, ttype_str)
+  end
+
+  return self:peek() ,""
+end
+
+Parser.parse_from_token = function(self:Parser, token: Token): (JsonNode, string)
+  switch token.type do
+    case TokenType.OPEN_BRACE then
+      return self:parse_object()
+    case TokenType.OPEN_BRACKET then
+      return self:parse_array()
+    case TokenType.STRING then
+      return JsonNode.new(JsonNodeType.STRING, token.val)
+    case TokenType.NUMBER then
+      return JsonNode.new(JsonNodeType.NUMBER, token.val)
+    case TokenType.TRUE then
+      return JsonNode.new(JsonNodeType.BOOLEAN, token.val)
+    case TokenType.FALSE then
+      return JsonNode.new(JsonNodeType.BOOLEAN, token.val)
+    case TokenType.NULL then
+      return JsonNode.new(JsonNodeType.NULL)
+    else
+      return (@JsonNode)({}), ("UNREACHABLE: `%s`"):format(token_type_tostring(token.type))
+  end
+    return (@JsonNode)({}), token_type_tostring(token.type)
+end
+
+Parser.parse_object = function(self: Parser): (JsonNode, string)
+  local obj: hashmap(string, JsonNode)
+  self:advance()
+
+  while self:peek().type ~= TokenType.CLOSE_BRACE do
+
+    if self:peek().type == TokenType.EOF then
+      local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+      return (@JsonNode)({}), ("[%d:%d]: Unclosed object"):format(line, char)
+    end
+
+    -- Expect Key
+    if self:peek().type ~= TokenType.STRING then
+      local ttype = token_type_tostring(self:peek().type)
+      local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+      return (@JsonNode)({}), ("[%d:%d]: Expected `STRING`, got `%s`"):format(line, char, ttype)
+    end
+
+    local key = self:peek().val
+
+    -- Duplicate fields check
+    if obj:has(key) then
+      local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+      return (@JsonNode)({}), ("[%d:%d]: Duplicate field `%s`"):format(line, char, key)
+    end
+    self:advance()
+
+    -- Expect colon
+    if self:peek().type ~= TokenType.COLON then
+      local ttype = token_type_tostring(self:peek().type)
+      local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+      return (@JsonNode)({}), ("[%d:%d]: Expected `COLON`, got `%s`"):format(line, char, ttype)
+    end
+    self:advance()
+
+    local val, err = self:parse_from_token(self:peek())
+
+    if err ~= "" then
+      return (@JsonNode)({}), err
+    end
+    obj[key] = val
+    self:advance()
+
+
+    local token, err = self:advance_comma_unless(TokenType.CLOSE_BRACE)
+
+    if err ~= "" then
+      return (@JsonNode)({}), err
+    end
+
+  end
+
+  return JsonNode.new(JsonNodeType.OBJECT, obj)
+end
+
+Parser.parse_array = function(self: Parser): (JsonNode, string)
+  local arr: sequence(JsonNode)
+  self:advance()
+
+  while self:peek().type ~= TokenType.CLOSE_BRACKET do
+
+    if self:peek().type == TokenType.EOF then
+      local line, char = pos_to_line_char(self:peek().start_pos, self.content)
+      return (@JsonNode)({}), ("[%d:%d]: Unclosed array"):format(line, char)
+    end
+
+    local val, err = self:parse_from_token(self:peek())
+
+    if err ~= "" then
+      return (@JsonNode)({}), err
+    end
+
+    arr:push(val)
+    self:advance()
+
+    local token, err = self:advance_comma_unless(TokenType.CLOSE_BRACKET)
+
+    if err ~= "" then
+      return (@JsonNode)({}), err
+    end
+
+  end
+
+  return JsonNode.new(JsonNodeType.ARRAY, arr)
+end
+
+function Parser:parse(): (JsonNode, string)
+  return self:parse_from_token(self:peek())
+end
+
+--- ### json record
+---`
+local json = @record{}
+---`
+
+--- ### json.JsonNode
+---`
+local json.JsonNode = JsonNode
+---`
+
+--- ### json.parse_file
+--[[-
+Parses a JSON file into a JsonNode structure.
+
+```:lang:
+local json = require "path.to.json"
+
+local node, err = json.parse_file("config.json")
+if err ~= "" then
+  print("Parse error:", err)
+  return
+end
+
+-- Access the node data
+if node:is_obj() then
+  local obj = node:get_obj()
+  -- Process object
+end
+```
+-]]
+---`
+function json.parse_file(file_path: string): (JsonNode, string)
+---`
+  local content_file, err = io.open(file_path)
+
+  if err ~= "" then
+    return (@JsonNode)(), err
+  end
+
+  local content = content_file:read("a")
+
+  local parser, err = Parser.new(content)
+  if err ~= "" then
+    return (@JsonNode)(), err
+  end
+  local node, err = parser:parse()
+  parser:destroy()
+  return node, err
+end
+
+--- ### json.parse_string
+--[[-
+Parses a JSON string into a JsonNode structure.
+
+```:lang:
+local json = require "path.to.json"
+
+local content = [=[
+{
+  "name": "John",
+  "active": true,
+reference "data": [1, 2, 3]
+}
+]=]
+
+local node, err = json.parse_string(content)
+if err ~= "" then
+  print("Parse error:", err)
+  return
+end
+```
+-]]
+---`
+function json.parse_string(content: string): (JsonNode, string)
+---`
+  local parser, err = Parser.new(content)
+  if err ~= "" then
+    return (@JsonNode)(), err
+  end
+  local node, err = parser:parse()
+  parser:destroy()
+  return node, err
+end
+
+##[[
+  ---|
+  ---@return boolean
+  ---| 
+  local function is_parseable(field_type)
+    if field_type.is_contiguous and not field_type.is_string then
+      return is_parseable(field_type.subtype)
+    elseif field_type.is_record and not (field_type.is_string or field_type.is_container) then
+      for _, field in pairs(field_type.fields) do
+        if not is_parseable(field.type) then
+          return false
+        end
+      end
+      return true
+    elseif field_type.is_string then
+      return true
+    elseif field_type.is_scalar and not field_type.is_enum then
+      return true
+    elseif field_type.is_boolean then
+      return true
+    elseif field_type.is_niltype then
+      return true
+    end
+    return false
+  end
+]]
+
+--- ### json.parse_string_to_record
+--[[-
+Directly parses a JSON string into a nelua record.
+
+```:lang:
+local json = require "path.to.json"
+
+local Config = @record{
+  debug: boolean,
+  port: integer,
+  hosts: sequence(string),
+  metadata: record{
+    version: string,
+    updated_at: string
+  }
+}
+
+local content = [=[
+{
+  "debug": true,
+  "port": 8080,
+  "hosts": ["localhost", "127.0.0.1"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2024-02-12"
+  }
+}
+]=]
+
+local config, err = json.parse_string_to_record(content, Config)
+if err ~= "" then
+  print("Failed to parse config:", err)
+  return
+end
+```
+
+Type Mapping:
+- JSON object -> record
+- JSON array -> any contiguous data structure
+- JSON string -> string
+- JSON number -> number
+- JSON boolean -> boolean
+- JSON null -> false
+-]]
+---`
+function json.parse_string_to_record(content: string, rec: type): (#[rec.value]#, string)
+---`
+  ## static_assert(rec.value.is_record, "Parameter `rec` must be a record type")
+  local parser, err = Parser.new(content)
+  if err ~= "" then
+    return (@rec)(), err
+  end
+
+  defer
+    parser:destroy()
+  end
+
+  local node, err = parser:parse()
+  if err ~= "" then
+    return (@rec)(), err
+  end
+
+  if not node:is_obj() then
+    return (@rec)(), "Node is not an object and can not be parsed to a record"
+  end
+
+  local function traverse_array(arr: auto, T: type): (#[T.value]#, string)
+    local sub_result: T
+    ## local sub_type = T.value.subtype
+    for i, v in ipairs(arr) do
+      ## if sub_type.is_contiguous and not sub_type.is_string then
+        if not v:is_arr() then
+          return (@T)(), ("`ARRAY` expected, got `%s`"):format(v:is())
+        end
+        local res, err = traverse_array(v:get_arr(), #[sub_type]#)
+        if err ~= "" then
+          return (@T)(), err
+        end
+        sub_result[i] = res
+      ## elseif sub_type.is_record and not (sub_type.is_string or sub_type.is_container) then
+        local res, err = traverse_node(v, #[sub_type]#)
+        if err ~= "" then
+          return (@T)(), err
+        end
+        sub_result[i] = res
+      ## elseif sub_type.is_string then
+        sub_result[i] = v:get_str()
+      ## elseif sub_type.is_scalar then
+        sub_result[i] = v:get_num()
+      ## elseif sub_type.is_boolean then
+        sub_result[i] = v:get_bool()
+      ## elseif sub_type.is_null then
+        sub_result[i] = v:get_null()
+      ## end
+    end
+    return sub_result, ""
+  end
+
+  local function traverse_node(node: JsonNode, T: type): (#[T.value]#, string)
+    local result: T
+    local current = node:get_obj()
+
+
+    for k in pairs(current) do
+      local field_exits = false
+      ## for _, field in ipairs(T.value.fields) do
+        if k == #[field.name]# then
+          field_exits = true
+        end
+      ## end
+      if not field_exits then
+        return (@T)(), ("Field `%s` does not exist in record"):format(k)
+      end
+    end
+
+    ## for _, field in ipairs(T.value.fields) do
+      ## static_assert(is_parseable(field.type), ("Can not parse array to JSON, unsupported type `%s`"):format(tostring(field.type)))
+      local current_field = current[#[field.name]#]
+      ## if field.type.is_contiguous and not field.type.is_string then
+        local res, err = traverse_array(current_field:get_arr(), #[field.type]#)
+        if err ~= "" then
+          return (@T)(), ("Error parsing field `%s`: %s"):format(#[field.name]#, err)
+        end
+        result.#|field.name|# = res
+      ## elseif field.type.is_record and not (field.type.is_string or field.type.is_container) then
+        local sub_result, err = traverse_node(current_field, #[field.type]#)
+        if err ~= "" then
+          return (@T)(), err
+        end
+        result.#|field.name|# = sub_result
+      ## elseif field.type.is_string then
+        result.#|field.name|# = current_field:get_str()
+      ## elseif field.type.is_scalar then
+        result.#|field.name|# = current_field:get_num()
+      ## elseif field.type.is_boolean then
+        result.#|field.name|# = current_field:get_bool()
+      ## elseif field.type.is_niltype then
+        result.#|field.name|# = current_field:get_null()
+      ## else
+        return (@T)(), "UNREACHABLE"
+      ## end
+    ## end
+
+    return result, ""
+  end
+
+  return traverse_node(node, rec)
+end
+
+--- ### json.parse_file_to_record
+--- Directly parses a JSON file into a nelua record, see [json.parse_string_to_record](#jsonparse_string_to_record) for more information
+---`
+function json.parse_file_to_record(file_path: string, rec: type)
+---`
+  local content_file, err = io.open(file_path)
+
+  if err ~= "" then
+    return (@rec)(), err
+  end
+
+  local content = content_file:read("a")
+
+  return json.parse_string_to_record(content, rec)
+end
+
+local function array_tostring(arr: auto, indent: facultative(uinteger)): string
+  ## static_assert(arr.type.is_contiguous and not arr.type.is_string, "Parameter `arr` must be a contiguous data structure")
+  ## static_assert(is_parseable(arr.type.subtype), ("Can not parse array to JSON, unsupported type `%s`"):format(tostring(arr.type.subtype)))
+
+  ## if not indent.type.is_niltype then
+    indent = indent == 0 and 1 or indent
+    local tab = string.rep("    ", indent)
+    local sb: stringbuilder
+    sb:write("[\n" .. tab)
+  ## else
+    sb:write("[")
+  ## end
+
+  ## local sub = arr.type.subtype
+  local index = 0
+  for _, v in ipairs(arr) do
+    ## if sub.is_contiguous and not sub.is_string then
+      ## if not indent.type.is_niltype then
+        sb:write(array_tostring(v, indent + 1))
+      ## else
+        sb:write(array_tostring(v))
+      ## end
+    ## elseif sub.is_record and not (sub.is_string or sub.is_container) then
+      ## if not indent.type.is_niltype then
+        sb:write(serialize_record(v, indent + 1))
+      ## else
+        sb:write(serialize_record(v))
+      ## end
+    ## elseif sub.is_string then
+      sb:write('"')
+      sb:write(v)
+      sb:write('"')
+    ## elseif sub.is_niltype then
+      sb:write("null")
+    ## else
+      sb:write(v)
+    ## end
+    sb:write(",")
+    ## if not indent.type.is_niltype then
+      sb:write("\n" .. tab)
+    ## else
+      sb:write(" ")
+    ## end
+    index = index + 1
+    if 0 < index and index >= #arr then
+      sb:rollback(#tab + 2)
+    end
+  end
+  ## if not indent.type.is_niltype then
+    sb:write("\n" .. string.rep("    ", indent - 1) .. "]")
+  ## else
+    sb:Write("]")
+  ## end
+  return sb:promote()
+end
+
+local function serialize_record(rec: auto, indent: facultative(uinteger)): string
+  ## static_assert(rec.type.is_record, "Parameter `rec` must be of type `record`")
+
+  local sb: stringbuilder
+  ## if not indent.type.is_niltype then
+    indent = indent == 0 and 1 or indent
+    local tab = string.rep("    ", indent)
+    sb:write("{\n" .. tab)
+  ## else
+    sb:write("{")
+  ## end
+
+  local index = 0
+  local rec_len = #[#rec.type.fields]#
+  ## for _, field in ipairs(rec.type.fields) do
+    ## static_assert(is_parseable(field.type), ("Can not parse record to JSON, unsupported type `%s`"):format(tostring(field.type)))
+
+    sb:writef('"%s": ', #[field.name]#)
+
+    ## if field.type.is_contiguous and not field.type.is_string then
+      ## if not indent.type.is_niltype then
+        sb:write(array_tostring(rec.#|field.name|#, indent + 1))
+      ## else
+        sb:write(array_tostring(rec.#|field.name|#))
+      ## end
+    ## elseif field.type.is_record and not (field.type.is_string or field.type.is_container) then
+      ## if not indent.type.is_niltype then
+        sb:write(serialize_record(rec.#|field.name|#, indent + 1))
+      ## else
+        sb:write(serialize_record(rec.#|field.name|#))
+      ## end
+    ## elseif field.type.is_string then
+      sb:write('"')
+      sb:write(rec.#|field.name|#)
+      sb:write('"')
+    ## elseif field.type.is_niltype then
+      sb:write("null")
+    ## else
+      sb:write(rec.#|field.name|#)
+    ## end
+
+    sb:write(",")
+    ## if not indent.type.is_niltype then
+      sb:write("\n" .. tab)
+    ## else
+      sb:write(" ")
+    ## end
+    index = index + 1
+  ## end
+  if 0 < index and index >= rec_len then
+    ## if not indent.type.is_niltype then
+      sb:rollback(#tab + 2)
+    ## else
+      sb:rollback(2)
+    ## end
+  end
+
+  ## if not indent.type.is_niltype then
+    sb:write("\n" .. string.rep("    ", indent - 1) .. "}")
+  ## else
+    sb:write("}")
+  ## end
+  return sb:promote()
+end
+
+--- ### json.serialize_record
+--[[-
+Converts a nelua record into a JSON string.
+
+```:lang:
+local json = require "path.to.json"
+
+local User = @record{
+  name: string,
+  age: integer,
+  active: boolean,
+  tags: sequence(string)
+}
+
+local user: User = {
+  name = "Alice",
+  age = 25,
+  active = true,
+  tags = {"admin", "staff"}
+}
+
+local json_str = json.serialize_record(user)
+print(json_str)
+-- Prints {"name": "Alice", "age": 25, "active": true, "tags": ["admin", "staff"]}
+```
+
+NB: All record fields must be of supported types
+-]]
+---`
+function json.serialize_record(rec: auto): string
+---`
+  return serialize_record(rec)
+end
+
+--- ### json.pretty_serialize_record
+--[[-
+Converts a nelua record into a pretty JSON string.
+
+```:lang:
+local json = require "path.to.json"
+
+local User = @record{
+  name: string,
+  age: integer,
+  active: boolean,
+  tags: sequence(string)
+}
+
+local user: User = {
+  name = "Alice",
+  age = 25,
+  active = true,
+  tags = {"admin", "staff"}
+}
+
+local json_str = json.pretty_serialize_record(user, 1)
+print(json_str)
+--[=[Prints
+{
+    "name": "Alice",
+    "age": 25,
+    "active": true,
+    "tags": [
+        "admin",
+        "staff"
+    ]
+}
+]=]
+```
+
+NB: All record fields must be of supported types
+-]]
+---`
+function json.pretty_serialize_record(rec: auto, indent: uinteger): string
+---`
+  return serialize_record(rec, indent)
+end
+
+return json

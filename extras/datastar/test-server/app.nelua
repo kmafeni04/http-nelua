@@ -1,0 +1,59 @@
+local http = require "....http"
+local datastar = require "..datastar"
+
+local app = http.new()
+
+app:get("index", "/", function(self: *http.Server)
+  return self:html(200,
+  [[<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HTML Page</title>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+</head>
+<body>
+  <input data-bind-foo />
+  <button data-on-click="@get('/stream')">get</button>
+  <button data-on-click="@post('/stream-post')">post</button>
+  <div id="hello"></div>
+</body>
+</html>]])
+end)
+
+app:get("stream", "/stream", function(self: *http.Server): http.Response
+  local sseg, err = datastar.ServerSentEventGenerator.new(self)
+  if err ~= "" then
+    return {
+      status = 500
+    }
+  end
+    for i = 1, 10 do
+      local err = sseg:merge_fragments(('<div id="hello">Hello, %d</div>'):format(i))
+      if err ~= "" then break end
+      local err = sseg:merge_signals(('{foo: %d}'):format(i))
+      if err ~= "" then break end
+      os.sleep(1)
+    end
+    sseg:redirect("/home")
+  return sseg.resp
+end)
+
+app:post("stream-post", "/stream-post", function(self: *http.Server): http.Response
+  local sseg, err = datastar.ServerSentEventGenerator.new(self)
+  if err ~= "" then
+    return {
+      status = 500
+    }
+  end
+    for i = 1, 10 do
+      local err = sseg:merge_fragments(('<div id="hello">Hello, %d</div>'):format(i))
+      if err ~= "" then break end
+      local err = sseg:merge_signals(('{foo: %d}'):format(i))
+      if err ~= "" then break end
+      os.sleep(1)
+    end
+  return sseg.resp
+end)
+
+app:serve()

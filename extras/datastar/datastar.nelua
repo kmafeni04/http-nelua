@@ -1,0 +1,286 @@
+local http = require "...http"
+local json = http.json
+
+local datastar = @record{}
+
+local datastar.ServerSentEventGenerator = @record{
+  server: *http.Server,
+  resp: http.Response
+}
+
+function datastar.ServerSentEventGenerator.new(server: *http.Server): (datastar.ServerSentEventGenerator, string) 
+  if server == nilptr then
+    return  {}, "Server was a nilptr"
+  end
+  local resp: http.Response = {
+    status = 200,
+    content_type = "text/event-stream"
+  }
+  local err = resp:set_header("Content-Length", "")
+  local err = resp:set_header("Cache-Control", "nocache")
+  if err ~= "" then
+    return {}, err
+  end
+  local err = resp:set_header("Connection", "keep-alive")
+  if err ~= "" then
+    return {}, err
+  end
+
+  local err = server:write(resp:tostring())
+  if err ~= "" then
+    return {}, err
+  end
+  return { server = server, resp = resp }, ""
+end
+
+local EventType = @enum{
+  MergeFragments = 0,
+  MergeSignals,
+  RemoveFragments,
+  RemoveSignals,
+  ExecuteScript,
+}
+
+local function event_type_text(e_type: EventType): string
+  switch e_type do
+    case EventType.MergeFragments then
+      return "datastar-merge-fragments"
+    case EventType.MergeSignals then
+      return "datastar-merge-signals"
+    case EventType.RemoveFragments then
+      return "datastar-remove-fragments"
+    case EventType.RemoveSignals then
+      return "datastar-remove-signals"
+    case EventType.ExecuteScript then
+      return "datastar-execute-script"
+  end
+  return "UNKNOWN EventType: " .. e_type
+end
+
+local SendOpts = @record{
+  event_id: string,
+  retry_duration: uinteger
+}
+
+local function send(
+  self: *datastar.ServerSentEventGenerator,
+  event: EventType,
+  data: sequence(string),
+  opts: facultative(SendOpts)
+): string
+  local sb: stringbuilder
+
+  sb:write(("event: %s\n"):format(event_type_text(event)))
+  ## if not opts.type.is_niltype then
+    if opts.event_id ~= "" then
+      sb:write(("id: %s\n"):format(opts.event_id))
+    end
+    if opts.retry_duration ~= 0 then
+      sb:write(("retry: %s\n"):format(opts.retry_duration ~= 0 and opts.retry_duration or 1000))
+    end
+  ## end
+  for i, v in ipairs(data) do
+    if i < #data then
+      sb:write(("data: %s\n"):format(v))
+    else
+      sb:write(("data: %s"):format(v))
+    end
+  end
+  sb:write("\n\n")
+
+  local final = sb:promote()
+  return self.server:write(final)
+end
+
+local FragmentMergeMode = @enum{
+  Morph = 0,
+  Inner,
+  Outer,
+  Prepend,
+  Append,
+  Before,
+  After,
+  UpsertAttributes,
+}
+
+local function fragment_merge_mode_text(fmm: FragmentMergeMode): string
+  switch fmm do
+    case FragmentMergeMode.Morph then
+      return "morph"
+    case FragmentMergeMode.Inner then
+      return "inner"
+    case FragmentMergeMode.Outer then
+      return "outer"
+    case FragmentMergeMode.Prepend then
+      return "prepend"
+    case FragmentMergeMode.Append then
+      return "append"
+    case FragmentMergeMode.Before then
+      return "before"
+    case FragmentMergeMode.After then
+      return "after"
+    case FragmentMergeMode.UpsertAttributes then
+      return "upsertAttributes"
+  end
+  return "UNKNOWN FragmentMergeMode: " .. fmm
+end
+
+function datastar.ServerSentEventGenerator:merge_fragments(
+  fragments: string,
+  opts: facultative(record{
+    selector: string,
+    merge_mode: *FragmentMergeMode,
+    use_view_transition: boolean,
+    event_id: string,
+    retry_duration: uinteger
+  })
+): string
+  local data: sequence(string)
+  ## if not opts.type.is_niltype then
+    local send_opts: SendOpts = {
+      event_id = opts.event_id,
+      retry_duration = opts.retry_duration,
+    }
+    if opts.selector ~= "" then
+      data:push(("selector %s"):format(opts.selector))
+    end
+    if opts.merge_mode ~= nilptr then
+      data:push(("merge %s"):format(fragment_merge_mode_text($opts.merge_mode)))
+    end
+    if opts.use_view_transition then
+      data:push(("useViewTransition true"))
+    end
+  ## else
+    local send_opts = nil
+  ## end
+  for line in string.gmatch(fragments .. "\n", "([^\r\n]+)%s*\r?\n") do
+    data:push(("fragments %s"):format(line))
+  end
+
+  return send(self, EventType.MergeFragments, data, send_opts)
+end
+
+function datastar.ServerSentEventGenerator:remove_fragments(
+  selector: string,
+  opts: facultative(record{
+    use_view_transition: boolean,
+    event_id: string,
+    retry_duration: uinteger
+  })
+): string
+  local data: sequence(string)
+
+  data:push(("selector %s"):format(selector))
+
+  ## if not opts.type.is_niltype then
+    local send_opts: SendOpts = {
+      event_id = opts.event_id,
+      retry_duration = opts.retry_duration,
+    }
+    if opts.use_view_transition then
+      data:push(("useViewTransition true"))
+    end
+  ## else
+    local send_opts = nil
+  ## end
+
+  return send(self, EventType.RemoveFragments, data, send_opts)
+end
+
+function datastar.ServerSentEventGenerator:merge_signals(
+  signals: string,
+  opts: facultative(record{
+    only_if_missing: boolean,
+    event_id: string,
+    retry_duration: uinteger
+  })
+): string
+  local data: sequence(string)
+
+  ## if not opts.type.is_niltype then
+    local send_opts: SendOpts = {
+      event_id = opts.event_id,
+      retry_duration = opts.retry_duration,
+    }
+    if opts.only_if_missing then
+      data:push(("onlyIfMissing true"))
+    end
+  ## else
+    local send_opts = nil
+  ## end
+
+  data:push(("signals %s"):format(signals))
+
+  return send(self, EventType.MergeSignals, data, send_opts)
+end
+
+function datastar.ServerSentEventGenerator:remove_signals(
+  paths: sequence(string),
+  opts: facultative(record{
+    event_id: string,
+    retry_duration: uinteger
+  })
+): string
+  local data: sequence(string)
+
+  ## if not opts.type.is_niltype then
+    local send_opts: SendOpts = {
+      event_id = opts.event_id,
+      retry_duration = opts.retry_duration,
+    }
+  ## else
+    local send_opts = nil
+  ## end
+
+  for _, v in ipairs(paths) do
+    data:push(("paths %s"):format(v))
+  end
+
+  return send(self, EventType.RemoveSignals, data, send_opts)
+end
+
+function datastar.ServerSentEventGenerator:execute_script(
+  script: string,
+  opts: facultative(record{
+    auto_remove: *boolean,
+    attributes: sequence(string),
+    event_id: string,
+    retry_duration: uinteger
+  })
+): string
+  local data: sequence(string)
+
+  ## if not opts.type.is_niltype then
+    local send_opts: SendOpts = {
+      event_id = opts.event_id,
+      retry_duration = opts.retry_duration,
+    }
+    if opts.auto_remove ~= nilptr and $opts.auto_remove == false then
+      data:push("autoRemove false")
+    end
+    for _, v in ipairs(opts.attributes) do
+      data:push(("attributes %s"):format(v))
+    end
+  ## else
+    local send_opts = nil
+  ## end
+
+  data:push(("script %s"):format(script))
+
+  return send(self, EventType.ExecuteScript, data, send_opts)
+end
+
+function datastar.ServerSentEventGenerator:redirect(path: string)
+  self:execute_script(("setTimeout(() => window.location = '%s')"):format(path))
+end
+
+function datastar.read_signals(server: *http.Server): (json.JsonNode, string)
+  if server.req.method == "GET" then
+    local signals = server.req.params["datastar"]
+    return json.parse_string(signals)
+  else
+    return json.parse_string(server.req.body)
+  end
+end
+
+return datastar

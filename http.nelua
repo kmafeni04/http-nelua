@@ -13,6 +13,7 @@ require ".libs.poll"
 local Crypt = require ".libs.cryptography"
 local send_request = require ".libs.send_request"
 local utils = require ".libs.utils"
+local json = require ".libs.json"
 local logger = require ".libs.logger"
 
 local mime_types: hashmap(string, string)
@@ -95,6 +96,8 @@ mime_types["3g2"] = "video/3gpp2; audio/3gpp2"
 mime_types["7z"] = "application/x-7z-compressed"
 
 local http = @record{}
+
+local http.json = json
 
 local http.Status = @enum{
   Continue = 100,
@@ -382,6 +385,7 @@ http.Server = @record{
     headers: hashmap(string, string),
     current_path: string,
     params: hashmap(string, string),
+    body: string
   },
   default_route: http.ActionFn,
   handle_404: http.ActionFn,
@@ -443,23 +447,23 @@ function http.Response:tostring(): string
   return sb:promote()
 end
 
-function http.Response:set_header(key: string, val: string): (boolean, string)
+function http.Response:set_header(key: string, val: string):  string
   if key == "" then
-    return false, "Key cannot be an empty string"
+    return "Key cannot be an empty string"
   end
   self.headers[key] = val
-  return true, ""
+  return ""
 end
 
-function http.Response:set_cookie(c: http.Cookie): (boolean, string)
+function http.Response:set_cookie(c: http.Cookie):  string
   if c.name == "" then
-    return false ,"A cookie value cannot have an empty string for its name"
+    return "A cookie value cannot have an empty string for its name"
   end
   if c.val == "" then
-    return false, "A cookie value cannot have an empty string for its val"
+    return "A cookie value cannot have an empty string for its val"
   end
   self.cookies:push(c)
-  return true, ""
+  return ""
 end
 
 function http.Server:get_cookie(name: string): string
@@ -554,9 +558,16 @@ function http.Server:html(code: http.Status, html: string): http.Response
   }
 end
 
-function http.Server:json(code: http.Status, json: string): http.Response
+function http.Server:json(code: http.Status, content: overload(string, auto)): http.Response
+  ## if content.type.is_string then
+    local val = content
+  ## else
+    ## static_assert(rec.type.is_record, "Parameter `rec` must be of type `record`")
+    local val = json.serialize_record(content)
+  ## end
+  local val
   return {
-    content = json,
+    content = val,
     status =  code,
     content_type =  "application/json"
   }
@@ -643,8 +654,9 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
   end
   -- request body params
-  if request_headers:has("Content-Type") and request_headers["Content-Type"] == "application/x-www-form-urlencoded" then
+  if method ~= "" and method ~= "GET" then
     local param_match, param_seq = buffer_str:match("\r\n\r\n(.+)")
+    self.req.body = param_seq[1]
     if param_match then
       local param_str = param_seq[1] .. "&"
       for _, params in param_str:gmatch("([^&]*)&") do
