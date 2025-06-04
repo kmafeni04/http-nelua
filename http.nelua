@@ -391,7 +391,7 @@ http.Server = @record{
   handle_404: http.ActionFn,
   session: Session,
   before_funcs: sequence(http.BeforeFn),
-  _fd: uinteger,
+  _fd: integer,
   written: boolean
 }
 
@@ -565,7 +565,6 @@ function http.Server:json(code: http.Status, content: overload(string, auto)): h
     ## static_assert(rec.type.is_record, "Parameter `rec` must be of type `record`")
     local val = json.serialize_record(content)
   ## end
-  local val
   return {
     content = val,
     status =  code,
@@ -889,7 +888,8 @@ function http.Server:serve()
           end
           self.written = false
           resp_str:destroy()
-          self._fd = 0
+          close(self._fd)
+          self._fd = -1
         end
         poll_count = poll_count - 1
         if (poll_count <= 0) then
