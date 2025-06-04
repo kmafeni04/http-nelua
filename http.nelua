@@ -654,15 +654,13 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
   end
   -- request body params
-  if method ~= "" and method ~= "GET" then
-    local param_match, param_seq = buffer_str:match("\r\n\r\n(.+)")
-    self.req.body = param_seq[1]
-    if param_match then
-      local param_str = param_seq[1] .. "&"
-      for _, params in param_str:gmatch("([^&]*)&") do
-        for _, param in params[0]:gmatch("(.*)=(.*)") do
-          self.req.params[param[0]] = http.utils.url_unescape(param[1])
-        end
+  local body_match, body_seq = buffer_str:match("\r\n\r\n(.+)")
+  self.req.body = body_seq[1]
+  if body_match then
+    local body_str = body_seq[1] .. "&"
+    for _, params in body_str:gmatch("([^&]*)&") do
+      for _, param in params[0]:gmatch("(.*)=(.*)") do
+        self.req.params[param[0]] = http.utils.url_unescape(param[1])
       end
     end
   end
