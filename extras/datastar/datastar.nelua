@@ -17,6 +17,9 @@ function datastar.ServerSentEventGenerator.new(server: *http.Server): (datastar.
     content_type = "text/event-stream"
   }
   local err = resp:set_header("Content-Length", "")
+  if err ~= "" then
+    return {}, err
+  end
   local err = resp:set_header("Cache-Control", "nocache")
   if err ~= "" then
     return {}, err
@@ -75,8 +78,8 @@ local function send(
     if opts.event_id ~= "" then
       sb:write(("id: %s\n"):format(opts.event_id))
     end
-    if opts.retry_duration ~= 0 then
-      sb:write(("retry: %s\n"):format(opts.retry_duration ~= 0 and opts.retry_duration or 1000))
+    if opts.retry_duration ~= 0 and opts.retry_duration ~= 1000 then
+      sb:write(("retry: %d\n"):format(opts.retry_duration))
     end
   ## end
   for i, v in ipairs(data) do
@@ -92,8 +95,9 @@ local function send(
   return self.server:write(final)
 end
 
-local FragmentMergeMode = @enum{
-  Morph = 0,
+local datastar.FragmentMergeMode = @enum{
+  not_set = 0,
+  Morph,
   Inner,
   Outer,
   Prepend,
@@ -103,23 +107,23 @@ local FragmentMergeMode = @enum{
   UpsertAttributes,
 }
 
-local function fragment_merge_mode_text(fmm: FragmentMergeMode): string
+local function fragment_merge_mode_text(fmm: datastar.FragmentMergeMode): string
   switch fmm do
-    case FragmentMergeMode.Morph then
+    case datastar.FragmentMergeMode.Morph then
       return "morph"
-    case FragmentMergeMode.Inner then
+    case datastar.FragmentMergeMode.Inner then
       return "inner"
-    case FragmentMergeMode.Outer then
+    case datastar.FragmentMergeMode.Outer then
       return "outer"
-    case FragmentMergeMode.Prepend then
+    case datastar.FragmentMergeMode.Prepend then
       return "prepend"
-    case FragmentMergeMode.Append then
+    case datastar.FragmentMergeMode.Append then
       return "append"
-    case FragmentMergeMode.Before then
+    case datastar.FragmentMergeMode.Before then
       return "before"
-    case FragmentMergeMode.After then
+    case datastar.FragmentMergeMode.After then
       return "after"
-    case FragmentMergeMode.UpsertAttributes then
+    case datastar.FragmentMergeMode.UpsertAttributes then
       return "upsertAttributes"
   end
   return "UNKNOWN FragmentMergeMode: " .. fmm
@@ -129,7 +133,7 @@ function datastar.ServerSentEventGenerator:merge_fragments(
   fragments: string,
   opts: facultative(record{
     selector: string,
-    merge_mode: *FragmentMergeMode,
+    merge_mode: datastar.FragmentMergeMode,
     use_view_transition: boolean,
     event_id: string,
     retry_duration: uinteger
@@ -144,8 +148,8 @@ function datastar.ServerSentEventGenerator:merge_fragments(
     if opts.selector ~= "" then
       data:push(("selector %s"):format(opts.selector))
     end
-    if opts.merge_mode ~= nilptr then
-      data:push(("merge %s"):format(fragment_merge_mode_text($opts.merge_mode)))
+    if opts.merge_mode > datastar.FragmentMergeMode.not_set then
+      data:push(("merge %s"):format(fragment_merge_mode_text(opts.merge_mode)))
     end
     if opts.use_view_transition then
       data:push(("useViewTransition true"))
@@ -153,7 +157,7 @@ function datastar.ServerSentEventGenerator:merge_fragments(
   ## else
     local send_opts = nil
   ## end
-  for line in string.gmatch(fragments .. "\n", "([^\r\n]+)%s*\r?\n") do
+  for line in string.gmatch(fragments .. "\n", "([^\r\n]+)\r?\n") do
     data:push(("fragments %s"):format(line))
   end
 
@@ -271,7 +275,7 @@ function datastar.ServerSentEventGenerator:execute_script(
 end
 
 function datastar.ServerSentEventGenerator:redirect(path: string)
-  self:execute_script(("setTimeout(() => window.location = '%s')"):format(path))
+  self:execute_script(('setTimeout(() => window.location = "%s")'):format(path))
 end
 
 function datastar.read_signals(server: *http.Server): (json.JsonNode, string)
