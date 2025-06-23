@@ -78,19 +78,6 @@ do
 end
 
 do
-  local content = [[
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-  </head>
-  <body>
-    <h1>Page or resource not found</h1>
-  </body>
-</html>]]
-
   local app = http.new({
     log = http.NotSetOrBool.FALSE
   })
@@ -99,8 +86,8 @@ do
   local resp_str = http.handle_request(str, &app)
   local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local expected =
-    ("HTTP/1.1 404 Not Found\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/html\r\nContent-Length: 254\r\n\r\n%s\r\n")
-      :format(formatted_date, content)
+    ("HTTP/1.1 404 Not Found\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 28\r\n\r\n%s\r\n")
+      :format(formatted_date, "Page or resource not found")
   assert(resp_str == expected)
   resp_str:destroy()
 end
@@ -116,7 +103,7 @@ do
   local resp_str = http.handle_request(str, &app)
   local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local expected =
-    ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/css\r\nContent-Length: 2\r\n\r\n\r\n")
+    ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/css\r\nContent-Length: 2\r\nCache-Control: public, max-age=31536000\r\n\r\n\r\n")
       :format(formatted_date)
   assert(resp_str == expected)
   resp_str:destroy()
@@ -133,26 +120,13 @@ do
   local resp_str = http.handle_request(str, &app)
   local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local expected =
-    ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: application/json\r\nContent-Length: 2\r\n\r\n\r\n")
+    ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: application/json\r\nContent-Length: 2\r\nCache-Control: public, max-age=31536000\r\n\r\n\r\n")
       :format(formatted_date)
   assert(resp_str == expected)
   resp_str:destroy()
 end
 
 do
-  local content = [[
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-  </head>
-  <body>
-    <h1>Page or resource not found</h1>
-  </body>
-</html>]]
-
   local app = http.new({
     log = http.NotSetOrBool.FALSE
   })
@@ -161,8 +135,8 @@ do
   local resp_str = http.handle_request(str, &app)
   local formatted_date = os.date("%a, %d %b %Y %H:%M:%S GMT")
   local expected =
-    ("HTTP/1.1 404 Not Found\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/html\r\nContent-Length: 254\r\n\r\n%s\r\n")
-      :format(formatted_date, content)
+    ("HTTP/1.1 404 Not Found\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 28\r\n\r\n%s\r\n")
+      :format(formatted_date, "Page or resource not found")
   assert(resp_str == expected)
   resp_str:destroy()
 end

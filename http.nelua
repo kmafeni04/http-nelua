@@ -591,6 +591,10 @@ function http.Server:redirect(path: string): http.Response
   }
 end
 
+function http.Server:error(msg: string): http.Response
+  return self:text(http.Status.InternalServerError, "Internal Server Error: " .. msg)
+end
+
 local http.send_request = send_request
 local http.utils = utils
 
@@ -930,21 +934,7 @@ function http.new(config: http.Config): http.Server
     end
   end
   s.handle_404 = function(self: *http.Server)
-    return http.Response{
-      content = [[
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-  </head>
-  <body>
-    <h1>Page or resource not found</h1>
-  </body>
-</html>]],
-      status = 404,
-    }
+    return self:text(http.Status.NotFound, "Page or resource not found")
   end
   return s
 end
