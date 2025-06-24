@@ -358,9 +358,6 @@ function Session:set_val(name: string, val: string): string
   if name == "" then
     return "A session value cannot have an empty string for its name"
   end
-  if val == "" then
-    return "A session value cannot have an empty string for its val"
-  end
   self.vals[name] = val
   self.send = true
   return ""
