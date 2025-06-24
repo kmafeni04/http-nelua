@@ -648,6 +648,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
   self.req.method = method
   self.req.headers = request_headers
   self.req.current_path = uri
+  self.req.params = {}
   -- query params
   local param_match, param_seq = uri:match("(/.*)?(.*)")
   if param_match then
