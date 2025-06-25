@@ -2,7 +2,7 @@ require "sequence"
 require "os"
 require "io"
 
-require "libs.ansicolor"
+local AnsiColor = require "libs.ansicolor"
 
 ##[[
   local lfs = require "lfs"

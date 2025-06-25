@@ -3,8 +3,8 @@ Mini library for coloring text in the terminal using ANSI escape codes
 
 Example usage:
 
-local ansi_color = require 'ansicolor'
-print(ansi_color("hello"):Red())
+local AnsiColor = require 'ansicolor'
+print(AnsiColor.new("hello"):Red():text())
 --> Prints out "hello" in red
 ]]
 
@@ -43,7 +43,7 @@ require 'string'
   }
 ]]
 
-global AnsiColor = @record{
+local AnsiColor = @record{
   data: string
 }
 
@@ -63,3 +63,5 @@ end
 function AnsiColor:tostring(): string
   return self.data
 end
+
+return AnsiColor

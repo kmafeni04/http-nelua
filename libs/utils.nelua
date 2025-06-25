@@ -8,7 +8,7 @@ local Utils = @record{}
 
 function Utils.url_escape(s: string): string
   return (string.gsub(s, "([^A-Za-z0-9_])", function(c: string)
-      return string.format("%%%%%02x", string.byte(c))
+      return string.format("%%%02x", string.byte(c))
   end))
 end
 

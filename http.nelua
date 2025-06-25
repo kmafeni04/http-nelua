@@ -10,6 +10,8 @@ require ".libs.socket"
 require ".libs.unistd"
 require ".libs.poll"
 
+local AnsiColor = require ".libs.ansicolor"
+
 local Crypt = require ".libs.cryptography"
 local send_request = require ".libs.send_request"
 local utils = require ".libs.utils"
@@ -623,6 +625,20 @@ function http.csrf.validate_token(self: *http.Server): boolean
   return true
 end
 
+local function color_status(status: http.Status): string
+  local color = AnsiColor.new(("%d"):format(status))
+  if status >= 200 and status < 300 then
+    color:Green()
+  elseif status >= 300 and status < 400 then
+    color:Yellow()
+  elseif status >= 400 and status < 500 then
+    color:Magenta()
+  elseif status >= 500 and status < 600 then
+    color:Red()
+  end
+  return color:Bright():tostring()
+end
+
 function http.handle_request(buffer_str: string, self: *http.Server)
   local status_code: uinteger
   local method: string, uri: string, version: string
@@ -711,7 +727,11 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       resp_str = resp:tostring()
       status_code = resp.status
       if method ~= "" then
-        logger.log(self.config.log, ("[%s] %s %s %s"):format(status_code, method, uri, version))
+        logger.log(self.config.log, ("[%s] %s %s"):format(
+          color_status(status_code),
+          AnsiColor.new(("%s %s"):format(method, uri)):Cyan():Bright():tostring(),
+          version)
+        )
       end
       return resp_str
     end
@@ -786,7 +806,11 @@ function http.handle_request(buffer_str: string, self: *http.Server)
   end
 
   if method ~= "" then
-    logger.log(self.config.log, ("[%s] %s %s %s"):format(status_code, method, uri, version))
+    logger.log(self.config.log, ("[%s] %s %s"):format(
+      color_status(status_code),
+      AnsiColor.new(("%s %s"):format(method, uri)):Cyan():Bright():tostring(),
+      version)
+    )
   end
   return resp_str
 end
