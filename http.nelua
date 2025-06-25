@@ -908,7 +908,7 @@ function http.Server:serve()
       end
 
       if (fds[i].revents & POLLIN == 1) then
-        local buffer: [1024]cchar
+        local buffer: [8192]cchar
         local bytes = read(fds[i].fd, &buffer, #buffer - 1)
         if (bytes <= 0) then
           close(fds[i].fd)
