@@ -685,6 +685,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end
   end
 
+  self.session.vals = {}
   local cookie, err = self:get_cookie(self.config.session_name)
   if cookie ~= "" then
     local match, match_seq = cookie:match("(.+)///(.+)")
@@ -711,9 +712,10 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       end
       sb:rollback(1)
       local session_map = http.utils.b64_encode(sb:promote()) 
+      local val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
       resp:set_cookie({
         name = self.config.session_name,
-        val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+        val = val
       })
       self.session.send = false
     end
