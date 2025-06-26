@@ -8,14 +8,13 @@ local datastar.ServerSentEventGenerator = @record{
   resp: http.Response
 }
 
-function datastar.ServerSentEventGenerator.new(server: *http.Server): (datastar.ServerSentEventGenerator, string) 
+function datastar.ServerSentEventGenerator.new(server: *http.Server, resp: http.Response): (datastar.ServerSentEventGenerator, string) 
   if server == nilptr then
     return  {}, "Server was a nilptr"
   end
-  local resp: http.Response = {
-    status = 200,
-    content_type = "text/event-stream"
-  }
+
+  resp.status = 200
+  resp.content_type = "text/event-stream"
   local err = resp:set_header("Content-Length", "")
   if err ~= "" then
     return {}, err
