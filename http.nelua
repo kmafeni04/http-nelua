@@ -639,6 +639,11 @@ local function color_status(status: http.Status): string
   return color:Bright():tostring()
 end
 
+local function escape_special(s: string)
+  local s = s:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+  return s
+end
+
 function http.handle_request(buffer_str: string, self: *http.Server)
   local status_code: uinteger
   local method: string, uri: string, version: string
@@ -675,12 +680,33 @@ function http.handle_request(buffer_str: string, self: *http.Server)
   end
   -- request body params
   local body_match, body_seq = buffer_str:match("\r\n\r\n(.+)")
-  self.req.body = body_seq[1]
   if body_match then
-    local body_str = body_seq[1] .. "&"
-    for _, params in body_str:gmatch("([^&]*)&") do
-      for _, param in params[0]:gmatch("(.*)=(.*)") do
-        self.req.params[param[0]] = http.utils.url_unescape(param[1])
+    self.req.body = body_seq[1]
+    -- TODO: Write test for different form content types
+    if self.req.headers:has("Content-Type") then
+      if self.req.headers["Content-Type"]:match("application/x%-www%-form%-urlencoded") then
+        local body_str = body_seq[1] .. "&"
+        for _, params in body_str:gmatch("([^&]*)&") do
+          for _, param in params[0]:gmatch("(.*)=(.*)") do
+            self.req.params[param[0]] = http.utils.url_unescape(param[1])
+          end
+        end
+      elseif self.req.headers["Content-Type"]:match("multipart/form%-data") then
+        local boundary_match, boundary_seq = self.req.headers["Content-Type"]:match("boundary=([^\r\n]+)")
+        if boundary_match then
+          local boundary = "%-%-" .. escape_special(boundary_seq[1])
+          for _, part in self.req.body:gmatch("(.-)\r\n" .. boundary, #boundary) do
+            local name_match, name_seq = part[0]:match('name="([^"]+)"\r\n')
+            local filename_match, filename_seq = part[0]:match('filename="([^"]+)"\r\n')
+            local val_match, val_seq = part[0]:match("\r\n\r\n(.*)$")
+            local val = val_seq[1]
+            -- TODO: Document how files are stored
+            if filename_match then
+              val = filename_seq[1] .. "__;__" .. val
+            end
+            self.req.params[name_seq[1]] = val
+          end
+        end
       end
     end
   end
