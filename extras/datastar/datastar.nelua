@@ -82,13 +82,9 @@ local function send(
     end
   ## end
   for i, v in ipairs(data) do
-    if i < #data then
-      sb:write(("data: %s\n"):format(v))
-    else
-      sb:write(("data: %s"):format(v))
-    end
+    sb:write(("data: %s\n"):format(v))
   end
-  sb:write("\n\n")
+  sb:write("\n")
 
   local final = sb:promote()
   return self.server:write(final)
@@ -148,7 +144,7 @@ function datastar.ServerSentEventGenerator:merge_fragments(
       data:push(("selector %s"):format(opts.selector))
     end
     if opts.merge_mode > datastar.FragmentMergeMode.not_set then
-      data:push(("merge %s"):format(fragment_merge_mode_text(opts.merge_mode)))
+      data:push(("mergeMode %s"):format(fragment_merge_mode_text(opts.merge_mode)))
     end
     if opts.use_view_transition then
       data:push(("useViewTransition true"))
@@ -156,8 +152,8 @@ function datastar.ServerSentEventGenerator:merge_fragments(
   ## else
     local send_opts = nil
   ## end
-  for line in string.gmatch(fragments .. "\n", "([^\r\n]+)\r?\n") do
-    data:push(("fragments %s"):format(line))
+  for _, line in string.gmatch(fragments .. "\n", "([^\r\n]+)\r?\n") do
+    data:push(("fragments %s"):format(line[0]))
   end
 
   return send(self, EventType.MergeFragments, data, send_opts)
