@@ -8,10 +8,29 @@ local datastar.ServerSentEventGenerator = @record{
   resp: http.Response
 }
 
+local function send_session(self: *http.Server, resp: *http.Response)
+  if self.session.send then
+    local sb: stringbuilder
+    for k, v in pairs(self.session.vals) do
+      sb:write(("%s=%s; "):format(k, v))
+    end
+    sb:rollback(1)
+    local session_map = http.utils.b64_encode(sb:promote()) 
+    local val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+    resp:set_cookie({
+      name = self.config.session_name,
+      val = val
+    })
+    self.session.send = false
+  end
+end
+
 function datastar.ServerSentEventGenerator.new(server: *http.Server, resp: http.Response): (datastar.ServerSentEventGenerator, string) 
   if server == nilptr then
     return  {}, "Server was a nilptr"
   end
+
+  send_session(server, resp)
 
   resp.status = 200
   resp.content_type = "text/event-stream"
