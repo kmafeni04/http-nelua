@@ -774,9 +774,9 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     local ext: string
     local err: boolean
     if ext_match then
-      ext = ext_seq[1]
+      ext = ext_seq[1]:lower()
     end
-    if not mime_types:has(ext:lower()) then
+    if not mime_types:has(ext) then
       err = true
     end
     local path = self.static_dir .. uri:sub(#self.static_name + 2)
