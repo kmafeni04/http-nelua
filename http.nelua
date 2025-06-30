@@ -320,7 +320,7 @@ local http.Cookie = @record{
 }
 
 local http.Response = @record{
-  content: string,
+  body: string,
   status: http.Status,
   content_type: string,
   headers: hashmap(string, string),
@@ -328,11 +328,9 @@ local http.Response = @record{
 }
 
 function http.Response:destroy()
-  self.content = (@string)()
-  self.status = (@integer)()
-  self.content_type = (@string)()
   self.headers:destroy()
   self.cookies:destroy()
+  self = (@*http.Response)()
 end
 
 local http.Server <forwarddecl> = @record{}
@@ -372,6 +370,15 @@ end
 
 local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
 
+local http.Request = @record{
+  method: string,
+  version: string,
+  headers: hashmap(string, string),
+  current_path: string,
+  params: hashmap(string, string),
+  body: string
+}
+
 http.Server = @record{
   config: http.Config,
   static_dir: string,
@@ -380,13 +387,7 @@ http.Server = @record{
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
   named_routes: hashmap(string, string),
-  req: record{
-    method: string,
-    headers: hashmap(string, string),
-    current_path: string,
-    params: hashmap(string, string),
-    body: string
-  },
+  req: http.Request,
   default_route: http.ActionFn,
   handle_404: http.ActionFn,
   session: Session,
@@ -414,7 +415,7 @@ function http.Response:tostring(): string
     sb:write(("Content-type: %s\r\n"):format(self.content_type))
   end
   if not (self.headers:has("Content-Length") and self.headers["Content-Length"] == "") then
-    sb:write(("Content-Length: %d\r\n"):format(#self.content + 2))
+    sb:write(("Content-Length: %d\r\n"):format(#self.body + 2))
   end
   for k, v in pairs(self.headers) do
     if k ~= "" and v ~= "" then
@@ -443,7 +444,7 @@ function http.Response:tostring(): string
     end
   end
   sb:write("\r\n")
-  sb:write(("%s\r\n"):format(self.content))
+  sb:write(("%s\r\n"):format(self.body))
 
   return sb:promote()
 end
@@ -543,21 +544,21 @@ end
 
 function http.Server:html(code: http.Status, html: string): http.Response
   return {
-    content = html,
+    body = html,
     status =  code,
     content_type =  "text/html"
   }
 end
 
-function http.Server:json(code: http.Status, content: overload(string, auto)): http.Response
-  ## if content.type.is_string then
-    local val = content
+function http.Server:json(code: http.Status, body: overload(string, auto)): http.Response
+  ## if body.type.is_string then
+    local val = body
   ## else
     ## static_assert(rec.type.is_record, "Parameter `rec` must be of type `record`")
-    local val = json.serialize_record(content)
+    local val = json.serialize_record(body)
   ## end
   return {
-    content = val,
+    body = val,
     status =  code,
     content_type =  "application/json"
   }
@@ -565,7 +566,7 @@ end
 
 function http.Server:text(code: http.Status, text: string): http.Response
   return {
-    content = text,
+    body = text,
     status =  code,
     content_type =  "text/plain"
   }
@@ -577,7 +578,7 @@ function http.Server:redirect(path: string): http.Response
   return {
     status = http.Status.Found,
     headers = headers,
-    content = self.req.body
+    body = self.req.body
   }
 end
 
@@ -635,8 +636,7 @@ local function escape_special(s: string)
   return s
 end
 
-function http.handle_request(buffer_str: string, self: *http.Server)
-  local status_code: uinteger
+function http.handle_request(buffer_str: string, self: *http.Server): http.Response
   local method: string, uri: string, version: string
   local request_headers: hashmap(string, string)
   local i = 0
@@ -658,6 +658,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
   end
 
   self.req.method = method
+  self.req.version = version
   self.req.headers = request_headers
   self.req.current_path = uri
   self.req.params = {}
@@ -715,11 +716,7 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     end 
   end
 
-  local resp_str: string
   local resp: http.Response
-  defer
-    resp:destroy()
-  end
 
   local function send_session(self: *http.Server, resp: *http.Response)
     if self.session.send then
@@ -743,23 +740,12 @@ function http.handle_request(buffer_str: string, self: *http.Server)
     if stop then
       resp = early_resp
       send_session(self, &resp)
-      resp_str = resp:tostring()
-      status_code = resp.status
-      if method ~= "" then
-        logger.log(self.config.log, ("[%s] %s %s"):format(
-          color_status(status_code),
-          AnsiColor.new(("%s %s"):format(method, uri)):Cyan():Bright():tostring(),
-          version)
-        )
-      end
-      return resp_str
+      return resp
     end
   end
   if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
     resp = self.routes[uri].methods[method](self)
     send_session(self, &resp)
-    resp_str = resp:tostring()
-    status_code = resp.status
   elseif uri:match("^/".. self.static_name .. ".*") then
     local ext_match, ext_seq = uri:match("^.+%.(.+)$") 
     local ext: string
@@ -776,12 +762,11 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       err = true
     end
     if err then
-      resp_str = self:default_route():tostring()
-      status_code = self:default_route().status
+      resp = self:default_route()
     else
       resp = {
         status = 200,
-        content = static_file:read("a"),
+        body = static_file:read("a"),
         content_type = mime_types[ext],
       }
       if not self.static_headers:has("Cache-Control") then
@@ -790,8 +775,6 @@ function http.handle_request(buffer_str: string, self: *http.Server)
       for k, v in pairs(self.static_headers) do
         resp.headers[k] =  v
       end
-      resp_str = resp:tostring()
-      status_code = resp.status
     end
     static_file:close()
   else
@@ -812,26 +795,16 @@ function http.handle_request(buffer_str: string, self: *http.Server)
         end
         resp = route.methods[method](self)
         send_session(self, &resp)
-        resp_str = resp:tostring()
-        status_code = resp.status
         err = false
         break
       end
     end
     if err then
-      resp_str = self:default_route():tostring()
-      status_code = self:default_route().status
+      resp = self:default_route()
     end
   end
 
-  if method ~= "" then
-    logger.log(self.config.log, ("[%s] %s %s"):format(
-      color_status(status_code),
-      AnsiColor.new(("%s %s"):format(method, uri)):Cyan():Bright():tostring(),
-      version)
-    )
-  end
-  return resp_str
+  return resp
 end
 
 function http.Server:serve()
@@ -935,15 +908,20 @@ function http.Server:serve()
           local str: string = &buffer
           self._fd = fds[i].fd
           
-          local resp_str = http.handle_request(str, self)
+          local resp = http.handle_request(str, self)
 
           if not self.written then
-            self.written = self:write(resp_str)
+            self.written = self:write(resp:tostring())
           end
+          logger.log(self.config.log, ("[%s] %s %s"):format(
+            color_status(resp.status),
+            AnsiColor.new(("%s %s"):format(self.req.method, self.req.current_path)):Cyan():Bright():tostring(),
+            self.req.version)
+          )
           self.written = false
-          resp_str:destroy()
           close(self._fd)
           self._fd = -1
+          resp:destroy()
         end
         poll_count = poll_count - 1
         if (poll_count <= 0) then
@@ -955,6 +933,84 @@ function http.Server:serve()
 
   general_allocator:dealloc(fds)
   close(listen_fd)
+end
+
+local http.MockRequestOpts = @record{
+  method: string,
+  params: hashmap(string, string),
+  headers: hashmap(string, string),
+  cookies: hashmap(string, string),
+  session_vals: hashmap(string, string)
+}
+
+function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (http.Response, string)
+  local sb: stringbuilder
+  local param_str: string
+  if next(opts.params) then
+    local param_sb: stringbuilder
+    for k, v in pairs(opts.params) do
+      param_sb:writef("%s=%s&", k, v)
+    end
+    param_sb:rollback(1)
+    param_str = param_sb:promote()
+  end
+
+  local method = opts.method ~= "" and opts.method or "get"
+  method = method:lower()
+  sb:writef("%s", method:upper())
+
+  if param_str ~= "" and method == "get" then
+    sb:writef(" %s", path .. "?" .. param_str)
+  else
+    sb:writef(" %s", path)
+  end
+  sb:write(" HTTP/1.1\r\n")
+  for k, v in pairs(opts.headers) do
+    sb:writef("%s: %s\r\n", k, v)
+  end
+  if not opts.headers:has("Host") then
+    sb:write("Host: localhost\r\n")
+  end
+  if not opts.headers:has("Content-Type") and (method == "post" or method == "put" or method == "patch" or method == "delete") then
+    sb:write("Content-Type: application/x-www-form-urlencoded\r\n")
+    if not opts.headers:has("Content-Length") then
+      sb:writef("Content-Length: %d\r\n", #param_str)
+    end
+  end
+  if next(opts.cookies) then
+    sb:write("Cookie:")
+    for k, v in pairs(opts.cookies) do
+      sb:writef(" %s=%s;", k, v)
+    end
+  end
+  if next(opts.session_vals) then
+    if not next(opts.cookies) then
+      sb:write("Cookie: ")
+    end
+    local session_sb: stringbuilder
+    for k, v in pairs(opts.session_vals) do
+      session_sb:write(("%s=%s; "):format(k, v))
+    end
+    session_sb:rollback(1)
+    local session_map = http.utils.b64_encode(session_sb:promote()) 
+    local val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+    sb:writef("%s=%s;", self.config.session_name, val)
+    if not next(opts.cookies) then
+      sb:rollback(1)
+      sb:write("\r\n")
+    end
+  end
+  if next(opts.cookies) then
+    sb:rollback(1)
+    sb:write("\r\n")
+  end
+  sb:write("\r\n")
+
+  if param_str ~= "" and method == "post" or method == "put" or method == "patch" or method == "delete" then
+    sb:write(param_str)
+  end
+  local req_str = sb:promote()
+  return http.handle_request(req_str, self), req_str
 end
 
 function http.new(config: http.Config): http.Server

@@ -10,13 +10,12 @@ do
   end)
 
   local str = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 13\r\n\r\nHello world\r\n")
       :format(formatted_date)
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -30,13 +29,12 @@ do
 
   local str =
     "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 19\r\n\r\nusername=test&age=30"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 9\r\n\r\ntest 30\r\n")
       :format(formatted_date)
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -49,13 +47,12 @@ do
   end)
 
   local str = "GET /test?name=nelua&lang=english HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 15\r\n\r\nnelua english\r\n")
       :format(formatted_date)
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -68,13 +65,12 @@ do
   end)
 
   local str = "GET /test/1/nelua HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 9\r\n\r\n1 nelua\r\n")
       :format(formatted_date)
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -83,13 +79,12 @@ do
   })
 
   local str = "GET /test HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 404 Not Found\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 28\r\n\r\n%s\r\n")
       :format(formatted_date, "Page or resource not found")
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -100,13 +95,12 @@ do
   app:set_static(#[lfs.currentdir()]# .. "/test-files", "static")
 
   local str = "GET /static/test.css HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/css\r\nContent-Length: 2\r\nCache-Control: public, max-age=31536000\r\n\r\n\r\n")
       :format(formatted_date)
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -117,13 +111,12 @@ do
   app:set_static(#[lfs.currentdir()]# .. "/test-files", "static")
 
   local str = "GET /static/test.json HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: application/json\r\nContent-Length: 2\r\nCache-Control: public, max-age=31536000\r\n\r\n\r\n")
       :format(formatted_date)
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do
@@ -132,13 +125,12 @@ do
   })
 
   local str = "invalid string"
-  local resp_str = http.handle_request(str, &app)
+  local resp = http.handle_request(str, &app)
   local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
   local expected =
     ("HTTP/1.1 404 Not Found\r\nServer: http-nelua\r\nDate: %s\r\nContent-type: text/plain\r\nContent-Length: 28\r\n\r\n%s\r\n")
       :format(formatted_date, "Page or resource not found")
-  assert(resp_str == expected)
-  resp_str:destroy()
+  assert(resp:tostring() == expected)
 end
 
 do

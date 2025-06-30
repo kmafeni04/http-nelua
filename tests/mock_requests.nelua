@@ -1,0 +1,137 @@
+local http = require "..http"
+
+require "..thirparty.inline_map"
+
+local write_sb: stringbuilder
+
+local app = http.new({
+  log = http.NotSetOrBool.FALSE
+})
+
+app.write = function(self: *http.Server, s: string): (boolean, string)
+  write_sb:write(s)
+  return true, ""
+end
+
+-- Route definitions
+app:get(nil, "/", function(self: *http.Server)
+  return self:text(http.Status.OK, "Hello world")
+end)
+
+app:post(nil, "/", function(self: *http.Server)
+  local username = self.req.params["username"]
+  if username == "" then
+    return self:error("username was an empty string")
+  end
+  local age = self.req.params["age"]
+  if age == "" then
+    return self:error("age was an empty string")
+  end
+  return self:text(http.Status.OK, ("%s %s"):format(username, age))
+end)
+
+app:get(nil, "/test", function(self: *http.Server)
+
+  local name = self.req.params["name"]
+  if name == "" then
+    return self:error("name was an empty string")
+  end
+  local lang = self.req.params["lang"]
+  if lang == "" then
+    return self:error("lang was an empty string")
+  end
+  return self:text(http.Status.OK, ("%s %s"):format(name, lang))
+end)
+
+app:get(nil, "/test/:id/:name", function(self: *http.Server)
+
+  local id = self.req.params["id"]
+  if id == "" then
+    return self:error("id was an empty string")
+  end
+  local name = self.req.params["name"]
+  if name == "" then
+    return self:error("name was an empty string")
+  end
+  return self:text(http.Status.OK, ("%s %s"):format(id, name))
+end)
+
+app:get(nil, "/session_value", function(self: *http.Server)
+  local name = self.session:get_val("name")
+  if name == "" then
+    return self:error("name was an empty string")
+  end
+  return self:text(http.Status.OK, name)
+end)
+
+app:post(nil, "/all", function(self: *http.Server)
+  local name = self:get_cookie("name")
+  if name == "" then
+    return self:error("name was an empty string")
+  end
+
+  local id = self.req.params["id"]
+  if id == "" then
+    return self:error("id was an empty string")
+  end
+
+  local age = self.session:get_val("age")
+  if age == "" then
+    return self:error("age was an empty string")
+  end
+  return self:text(http.Status.OK, ("%s %s %s"):format(id, name, age))
+end)
+
+-- Route tests
+local resp, req_str = app:mock_request("/")
+assert(resp.status == 200)
+
+local resp, req_str = app:mock_request("/", {
+  method = "POST",
+  params = inline_map!(string, string, {
+    username = "James",
+    age = "21"
+  })
+})
+assert(resp.status == 200)
+assert(resp.body == "James 21")
+
+local resp, req_str = app:mock_request("/test", {
+  method = "GET",
+  params = inline_map!(string, string, {
+    name = "James",
+    lang = "English"
+  })
+})
+assert(resp.status == 200)
+assert(resp.body == "James English")
+
+local resp, req_str = app:mock_request("/test/1/James")
+assert(resp.status == 200)
+assert(resp.body == "1 James")
+
+local resp, req_str = app:mock_request("/session_value", {
+  method = "GET",
+  session_vals = inline_map!(string, string, {
+    name = "James"
+  })
+})
+assert(resp.status == 200)
+assert(resp.body == "James")
+
+local resp, req_str = app:mock_request("/all", {
+  method = "POST",
+  params = inline_map!(string, string, {
+    id = "1"
+  }),
+  cookies = inline_map!(string, string, {
+    name = "James"
+  }),
+  session_vals = inline_map!(string, string, {
+    age = "21"
+  })
+})
+assert(resp.status == 200)
+assert(resp.body == "1 James 21")
+
+
