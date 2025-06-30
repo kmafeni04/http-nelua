@@ -47,10 +47,11 @@ function datastar.ServerSentEventGenerator.new(server: *http.Server, resp: http.
     return {}, err
   end
 
-  local err = server:write(resp:tostring())
+  local written, err = server:write(resp:tostring())
   if err ~= "" then
     return {}, err
   end
+  server.written = true
   return { server = server, resp = resp }, ""
 end
 
@@ -106,7 +107,12 @@ local function send(
   sb:write("\n")
 
   local final = sb:promote()
-  return self.server:write(final)
+  local written, err = self.server:write(final)
+  if err ~= "" then
+    return err
+  end
+  self.server.written = written
+  return ""
 end
 
 local datastar.FragmentMergeMode = @enum{

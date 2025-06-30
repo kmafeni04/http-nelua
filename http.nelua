@@ -391,8 +391,9 @@ http.Server = @record{
   handle_404: http.ActionFn,
   session: Session,
   before_funcs: sequence(http.BeforeFn),
-  _fd: integer,
-  written: boolean
+  write: function(self: *http.Server, s: string): (boolean, string),
+  written: boolean,
+  _fd: integer
 }
 
 function http.Response:tostring(): string
@@ -507,16 +508,6 @@ end
     end
   end
 ## end
-
-function http.Server:write(s: string): string
-  local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
-  if written_bytes == -1 then
-    local err_msg = C.strerror(C.errno)
-    return (@string)(err_msg)
-  end
-  self.written = true
-  return ""
-end
 
 function http.Server:before_filter(fn: http.BeforeFn)
   self.before_funcs:push(fn)
@@ -947,7 +938,7 @@ function http.Server:serve()
           local resp_str = http.handle_request(str, self)
 
           if not self.written then
-            self:write(resp_str)
+            self.written = self:write(resp_str)
           end
           self.written = false
           resp_str:destroy()
@@ -975,6 +966,16 @@ function http.new(config: http.Config): http.Server
   s.config = config
   s.static_dir = "./static"
   s.static_name = "static"
+
+  s.write = function(self:*http.Server, s: string): (boolean, string)
+    local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
+    if written_bytes == -1 then
+      local err_msg = C.strerror(C.errno)
+      return false, (@string)(err_msg)
+    end
+    return true, ""
+  end
+
   s.default_route = function(self: *http.Server)
     if self.req.current_path:match("./$") then
       local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
@@ -983,6 +984,7 @@ function http.new(config: http.Config): http.Server
       return self:handle_404()
     end
   end
+
   s.handle_404 = function(self: *http.Server)
     return self:text(http.Status.NotFound, "Page or resource not found")
   end
