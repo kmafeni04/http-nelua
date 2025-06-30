@@ -793,9 +793,11 @@ function http.handle_request(buffer_str: string, self: *http.Server): http.Respo
             self.req.params[name:sub(2)] = uri_seq[i]
           end
         end
-        resp = route.methods[method](self)
-        send_session(self, &resp)
-        err = false
+        if route.methods:has(method) then
+          resp = route.methods[method](self)
+          send_session(self, &resp)
+          err = false
+        end
         break
       end
     end
