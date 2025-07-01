@@ -5,7 +5,7 @@ require "..thirparty.inline_map"
 local write_sb: stringbuilder
 
 local app = http.new({
-  log = http.NotSetOrBool.FALSE
+  log = http.TriBool.FALSE
 })
 
 app.write = function(self: *http.Server, s: string): (boolean, string)

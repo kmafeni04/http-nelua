@@ -100,6 +100,8 @@ mime_types["7z"] = "application/x-7z-compressed"
 local http = @record{}
 
 local http.json = json
+local http.send_request = send_request
+local http.utils = utils
 
 local http.Status = @enum{
   Continue = 100,
@@ -303,10 +305,10 @@ local function status_text(code: http.Status): string
 end
 
 
-local http.NotSetOrBool = @enum{
-  NOT_SET = 0,
-  TRUE,
-  FALSE
+local http.TriBool= @enum{
+  NULL = -1,
+  FALSE,
+  TRUE
 }
 
 local http.Cookie = @record{
@@ -315,8 +317,8 @@ local http.Cookie = @record{
   path: string,
   domain: string,
   expires: string,
-  secure: http.NotSetOrBool,
-  httpOnly: http.NotSetOrBool
+  secure: http.TriBool,
+  httpOnly: http.TriBool
 }
 
 local http.Response = @record{
@@ -346,15 +348,15 @@ local http.Config = @record{
   bind_host: string,
   secret: string,
   session_name: string,
-  log: http.NotSetOrBool
+  log: http.TriBool
 }
 
-local Session = @record{
+local http.Session = @record{
   vals: hashmap(string, string),
   send: boolean
 }
 
-function Session:set_val(name: string, val: string): string
+function http.Session:set_val(name: string, val: string): string
   if name == "" then
     return "A session value cannot have an empty string for its name"
   end
@@ -363,7 +365,7 @@ function Session:set_val(name: string, val: string): string
   return ""
 end
 
-function Session:get_val(name: string): string
+function http.Session:get_val(name: string): string
   if not self.vals:has(name) then return "" end
   return self.vals[name]
 end
@@ -390,7 +392,7 @@ http.Server = @record{
   req: http.Request,
   default_route: http.ActionFn,
   handle_404: http.ActionFn,
-  session: Session,
+  session: http.Session,
   before_funcs: sequence(http.BeforeFn),
   write: function(self: *http.Server, s: string): (boolean, string),
   written: boolean,
@@ -434,10 +436,10 @@ function http.Response:tostring(): string
       if v.expires ~= "" then
         sb:write(("; Expires=%s"):format(v.expires))
       end
-      if v.secure == http.NotSetOrBool.NOT_SET or v.secure == http.NotSetOrBool.TRUE then
+      if v.secure == http.TriBool.NULL or v.secure == http.TriBool.TRUE then
         sb:write(("; Secure"):format(v.secure))
       end
-      if v.httpOnly == http.NotSetOrBool.NOT_SET or v.httpOnly == http.NotSetOrBool.TRUE then
+      if v.httpOnly == http.TriBool.NULL or v.httpOnly == http.TriBool.TRUE then
         sb:write(("; HttpOnly"):format(v.httpOnly))
       end
       sb:write("\r\n")
@@ -585,9 +587,6 @@ end
 function http.Server:error(msg: string): http.Response
   return self:text(http.Status.InternalServerError, "Internal Server Error: " .. msg)
 end
-
-local http.send_request = send_request
-local http.utils = utils
 
 local http.csrf = @record{}
 

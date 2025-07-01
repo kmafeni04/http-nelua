@@ -2,7 +2,7 @@ local http = require("..http")
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:get(nil, "/", function(self: *http.Server)
@@ -20,7 +20,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:post(nil, "/", function(self: *http.Server)
@@ -39,7 +39,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:get(nil, "/test", function(self: *http.Server)
@@ -57,7 +57,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:get(nil, "/test/:id/:name", function(self: *http.Server)
@@ -75,7 +75,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   local str = "GET /test HTTP/1.1\r\nHost: localhost\r\n\r\n"
@@ -89,7 +89,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:set_static(#[lfs.currentdir()]# .. "/test-files", "static")
@@ -105,7 +105,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:set_static(#[lfs.currentdir()]# .. "/test-files", "static")
@@ -121,7 +121,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   local str = "invalid string"
@@ -135,7 +135,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:get("index", "/", function(self: *http.Server)
@@ -149,7 +149,7 @@ end
 
 do
   local app = http.new({
-    log = http.NotSetOrBool.FALSE
+    log = http.TriBool.FALSE
   })
 
   app:before_filter(function(self: *http.Server): (boolean, http.Response)
