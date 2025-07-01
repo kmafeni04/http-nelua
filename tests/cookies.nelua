@@ -1,7 +1,7 @@
 local http = require "..http"
 
 do
-  local app = http.new({
+  local app = http.Server.new({
     log = http.TriBool.FALSE
   })
 
@@ -21,7 +21,7 @@ do
 end
 
 do
-  local app = http.new()
+  local app = http.Server.new()
   app.req.headers["Cookie"] = "name=james; age=10"
 
   local name = app:get_cookie("name")

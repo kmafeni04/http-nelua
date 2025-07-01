@@ -4,7 +4,7 @@ require "..thirparty.inline_map"
 
 local write_sb: stringbuilder
 
-local app = http.new({
+local app = http.Server.new({
   log = http.TriBool.FALSE
 })
 

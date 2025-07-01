@@ -335,70 +335,6 @@ function http.Response:destroy()
   self = (@*http.Response)()
 end
 
-local http.Server <forwarddecl> = @record{}
-
-local http.ActionFn = @function(self: *http.Server): http.Response
-
-local Route = @record{
-  methods: hashmap(string, http.ActionFn)
-}
-
-local http.Config = @record{
-  port: uinteger,
-  bind_host: string,
-  secret: string,
-  session_name: string,
-  log: http.TriBool
-}
-
-local http.Session = @record{
-  vals: hashmap(string, string),
-  send: boolean
-}
-
-function http.Session:set_val(name: string, val: string): string
-  if name == "" then
-    return "A session value cannot have an empty string for its name"
-  end
-  self.vals[name] = val
-  self.send = true
-  return ""
-end
-
-function http.Session:get_val(name: string): string
-  if not self.vals:has(name) then return "" end
-  return self.vals[name]
-end
-
-local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
-
-local http.Request = @record{
-  method: string,
-  version: string,
-  headers: hashmap(string, string),
-  current_path: string,
-  params: hashmap(string, string),
-  body: string
-}
-
-http.Server = @record{
-  config: http.Config,
-  static_dir: string,
-  static_name: string,
-  static_headers: hashmap(string, string),
-  routes: hashmap(string, Route),
-  var_routes: hashmap(string, Route),
-  named_routes: hashmap(string, string),
-  req: http.Request,
-  default_route: http.ActionFn,
-  handle_404: http.ActionFn,
-  session: http.Session,
-  before_funcs: sequence(http.BeforeFn),
-  write: function(self: *http.Server, s: string): (boolean, string),
-  written: boolean,
-  _fd: integer
-}
-
 function http.Response:tostring(): string
   local status_msg = status_text(self.status)
   if self.content_type == "" then
@@ -470,24 +406,79 @@ function http.Response:set_cookie(c: http.Cookie):  string
   return ""
 end
 
-function http.Server:get_cookie(name: string): string
-  if not self.req.headers:has("Cookie") then
-    return ""
+local http.Server <forwarddecl> = @record{}
+
+local http.ActionFn = @function(self: *http.Server): http.Response
+
+local Route = @record{
+  methods: hashmap(string, http.ActionFn)
+}
+
+local http.Config = @record{
+  port: uinteger,
+  bind_host: string,
+  secret: string,
+  session_name: string,
+  log: http.TriBool
+}
+
+local http.Session = @record{
+  vals: hashmap(string, string),
+  send: boolean
+}
+
+function http.Session:set_val(name: string, val: string): string
+  if name == "" then
+    return "A session value cannot have an empty string for its name"
   end
-  local cookies = self.req.headers["Cookie"] .. ";"
-  for _, cookie_span in cookies:gmatch("([%w_]+)=([^;]+);") do
-    if cookie_span[0] == name then
-      return cookie_span[1]
-    end
-  end
+  self.vals[name] = val
+  self.send = true
   return ""
 end
+
+function http.Session:get_val(name: string): string
+  if not self.vals:has(name) then return "" end
+  return self.vals[name]
+end
+
+local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
+
+local http.Request = @record{
+  method: string,
+  version: string,
+  headers: hashmap(string, string),
+  current_path: string,
+  params: hashmap(string, string),
+  body: string
+}
+
+http.Server = @record{
+  config: http.Config,
+  static_dir: string,
+  static_name: string,
+  static_headers: hashmap(string, string),
+  routes: hashmap(string, Route),
+  var_routes: hashmap(string, Route),
+  named_routes: hashmap(string, string),
+  req: http.Request,
+  default_route: http.ActionFn,
+  handle_404: http.ActionFn,
+  session: http.Session,
+  before_funcs: sequence(http.BeforeFn),
+  write: function(self: *http.Server, s: string): (boolean, string),
+  written: boolean,
+  _fd: integer
+}
 
 function http.Server:set_static(dir: string, name: string)
   assert(dir ~= "", "Static directory path can not be an empty string")
   assert(name ~= "", "Static directory name can not be an empty string")
   self.static_dir = dir
   self.static_name = name
+end
+
+function http.Server:before_filter(fn: http.BeforeFn)
+  self.before_funcs:push(fn)
 end
 
 ## local methods = {"get", "post", "put", "patch", "delete"}
@@ -512,8 +503,21 @@ end
   end
 ## end
 
-function http.Server:before_filter(fn: http.BeforeFn)
-  self.before_funcs:push(fn)
+function http.Server:get_header(name: string): string
+  if not self.req.headers:has(name) then
+    return ""
+  end
+  return self.req.headers[name]
+end
+
+function http.Server:get_cookie(name: string): string
+  local cookies = self:get_header("Cookie") .. ";"
+  for _, cookie_span in cookies:gmatch("([%w_]+)=([^;]+);") do
+    if cookie_span[0] == name then
+      return cookie_span[1]
+    end
+  end
+  return ""
 end
 
 local http.Server.UrlForOpts = @record{
@@ -1014,7 +1018,7 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
   return http.handle_request(req_str, self), req_str
 end
 
-function http.new(config: http.Config): http.Server
+function http.Server.new(config: http.Config): http.Server
   config.port = config.port == 0 and 8080 or config.port
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
   config.session_name = config.session_name == "" and "http_session" or config.session_name
