@@ -1,3 +1,5 @@
+--- ### send_request.nelua
+
 ## cinclude "<openssl/err.h>"
 ## cinclude "<openssl/ssl.h>"
 ## linklib "ssl"
@@ -80,18 +82,24 @@ local function parse_url(url: string): (SendAddress, string)
   return send_addr, ""
 end
 
+--- #### SendRequest
+---`
 local SendRequest = @record{
   url: string,
   method: string,
   headers: hashmap(string, string),
   body: hashmap(string, string)
 }
+---`
 
+--- #### SendResponse
+---`
 local SendResponse = @record{
   body: string,
   status: string,
   headers: hashmap(string, string)
 }
+---`
 
 local BUFFER_SIZE <comptime> = 8192
 
@@ -283,6 +291,18 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
   }, ""
 end
 
+--- #### send_request
+--[[-
+This function takes a [SendRequest](#sendrequest) object, makes either an http or https request and returns a [SendResponse](#sendresponse) object
+Keep note that this function will block whatever route you call it on until the request is completed
+
+```:lang:
+local result, err = send_request({
+  url = "https://dummy-json.mock.beeceptor.com/posts/1",
+  method = "get"
+})
+```
+-]]
 local function send_request(req: SendRequest): (SendResponse, string)
   assert(req.url ~= "")
   assert(req.method ~= "")

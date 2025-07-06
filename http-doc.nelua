@@ -1,0 +1,57 @@
+local ssdg = require "ssdg"
+
+local gen = ssdg.new{
+  lang = "lua",
+  lead = "-",
+  single_line = "--",
+  multi_line = {
+    starting = "--[[",
+    ending = "]]"
+  }
+}
+
+local subs: hashmap(string, string)
+subs["lang"] = gen.conf.lang
+
+gen:add([=[
+# http.nelua
+
+A sufficiently featured webserver for nelua
+
+## Quick start
+
+```:lang:
+local http = require "path.to.http"
+
+local app = http.Server.new()
+
+app:get(nil, "/", function(self: *http.Server): http.Response
+  return self:text(http.Status.OK, "hello, world")
+end)
+
+app:serve()
+```
+
+## Reference
+
+]=], {subs = subs})
+
+gen:add_file("./http.nelua", { subs = subs })
+
+gen:add([[
+### json.nelua
+
+]])
+gen:add_file("./thirdparty/json.nelua", { subs = subs })
+gen:add_file("./libs/send_request.nelua", { subs = subs })
+gen:add_file("./libs/utils.nelua", { subs = subs })
+
+gen:add([[
+---
+  
+## Acknowledgement
+
+This library is heavliy inspired by the [lapis](https://github.com/leafo/lapis) and a bit by the [echo](https://github.com/labstack/echo) web frameworks
+]], { subs = subs })
+
+gen:write_file("README.md")

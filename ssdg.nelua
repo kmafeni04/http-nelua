@@ -1,0 +1,236 @@
+require "string"
+require "io"
+require "os"
+
+local function trim_wspace(s: string)
+  local _, str_seq = s:match("^%s*(.-)%s*$")
+  return str_seq[1]
+end
+
+local function escape_special(s: string)
+  local s = s:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+  return s
+end
+
+--- ## Types
+
+--- ### Block record
+---`
+local Block = @record{
+  starting: string,
+  ending: string
+}
+---`
+
+--- ### Config record
+---`
+local Config = @record{
+  lang: string, -- required, the language that will be appended to code blocks
+  lead: string, -- optional, default: '-', differentiates regular comments from doc comments
+  single_line: string, -- required, defines the way singline comments should be extracted
+  multi_line: Block, -- optional, default 'none', defines the way multiline comments should be extracted
+  code_block: Block, -- optional, default '`', delimeters used to determine when to start or stop wrapping code in a code block
+  ignore_block: Block, -- optional, default '|', delimeters used to determine when to start or stop ignoring comments
+  sub: Block, -- optional, default ':', delimeters used to determine when to start or stop definining the content that will be subbed in a doc
+}
+---`
+
+--- ### AddOptions record
+--[[-
+Used to pass extra behaviours to ssdg:add functions
+`subs` - Used to replace any thing that matches the inside of the [Config](#config-record).sub Block
+-]]
+---`
+local AddOptions = @record{
+  subs: hashmap(string, string)
+}
+---`
+
+--- ### ssdg record
+---`
+local ssdg = @record{
+  buf: stringbuilder,
+  conf: Config
+}
+---`
+local function assert_block(conf: Config)
+  local check: sequence(Block) = {
+    conf.multi_line,
+    conf.code_block,
+    conf.ignore_block,
+    conf.sub
+  }
+  local function index_tostring(i: uinteger): string
+    switch i do
+      case 1 then
+        return "multi_line"
+      case 2 then
+        return "code_block"
+      case 3 then
+        return "ignore_block"
+      case 4 then
+        return "sub"
+    end
+    return "UNKNOWN INDEX"
+  end
+  for i, v in ipairs(check) do
+    if v.starting ~= "" then
+      assert(v.ending ~= "", ("Block `%s` can not have an empty ending if it's starting is set"):format(index_tostring(i)))
+    end
+    if v.ending~= "" then
+      assert(v.starting ~= "", ("Block `%s` can not have an empty starting if it's ending is set"):format(index_tostring(i)))
+    end
+  end
+  local seen_starting: hashmap(string, Block)
+  for i, v in ipairs(check) do
+    assert(not seen_starting:has(v.starting), ("%s is already assigned as the starting of another `Block`"):format(v.starting))
+    seen_starting[v.starting] = v
+  end
+  local seen_ending: hashmap(string, Block)
+  for i, v in ipairs(check) do
+    assert(not seen_ending:has(v.ending), ("%s is already assigned as the ending of another `Block`"):format(v.ending))
+    seen_ending[v.ending] = v
+  end
+end
+
+--[[-
+## API
+
+### ssdg.new
+
+Create a new instance of `ssdg` to be used to generate docs
+-]]
+---`
+function ssdg.new(conf: Config): ssdg
+---`
+  assert(conf.lang ~= "", "lang must be set")
+  conf.lead = conf.lead ~= "" and conf.lead or "-"
+  assert(conf.single_line ~= "", "single_line must be set")
+  conf.code_block.starting = conf.code_block.starting ~= "" and conf.code_block.starting or "`"
+  conf.code_block.ending = conf.code_block.ending ~= "" and conf.code_block.ending or "`"
+  conf.ignore_block.starting = conf.ignore_block.starting ~= "" and conf.ignore_block.starting or "|"
+  conf.ignore_block.ending = conf.ignore_block.ending ~= "" and conf.ignore_block.ending or "|"
+  conf.sub.starting = conf.sub.starting ~= "" and conf.sub.starting or ":"
+  conf.sub.ending = conf.sub.ending ~= "" and conf.sub.ending or ":"
+  assert_block(conf)
+  return {
+    conf = conf
+  }
+end
+
+--- ### ssdg:add
+--- Adds `s` to the instance buffer
+---`
+function ssdg:add(s: string, opts: AddOptions)
+---`
+  local conf = self.conf
+  local sub_str = ("%s%s%s"):format(escape_special(conf.sub.starting), "%s*([%w_]+)%s*", escape_special(conf.sub.ending))
+  s = s:gsub(sub_str, opts.subs)
+  assert(self.buf:write(s), "Failed to write into internal buffer")
+end
+
+--- ### ssdg:add_file
+--- Reads the content of a file at `path` adding any docs to the buffer based on the provided config
+---`
+function ssdg:add_file(path: string, opts: AddOptions)
+---`
+  local file <close> = io.open(path, "r")
+  assert(file:isopen(), "Failed to open file at path: " .. path)
+  local content, err = file:read("a")
+  assert(err == "", err)
+
+  local lines: sequence(string)
+  for line in string.gmatch(content .. "\n", "([^\r\n]*\r?\n)") do
+    lines:push(line)
+  end
+
+  local conf = self.conf
+  local sub_str = ("%s%s%s"):format(escape_special(conf.sub.starting), "%s*([%w_]+)%s*", escape_special(conf.sub.ending))
+  local li = 0
+  while li <= #lines do
+    if lines[li]:match(escape_special(conf.single_line .. conf.lead .. conf.ignore_block.starting)) then
+      local block_end_match_str = escape_special(conf.single_line .. conf.lead .. conf.ignore_block.ending)
+      local block_start_match = lines[li]:match(escape_special(conf.single_line .. conf.lead .. conf.ignore_block.starting) .. "%s*$")
+      assert(block_start_match, ("%s:%d: Syntax error: Nothing should come after the ignore block start"):format(path, li))
+      li = li + 1
+      local start_mark = li
+      repeat
+        li = li + 1
+        assert(li <= #lines, ("%s:%d:%d: error: No closing found for ignore block"):format(path, start_mark, #lines[start_mark]))
+      until lines[li]:match(block_end_match_str)
+      assert(
+        lines[li]:match("^%s*" .. block_end_match_str .. "%s*$"),
+        ("%s:%d: error: ignore block end must not contain any extra characters"):format(path, li)
+      )
+    elseif lines[li]:match(escape_special(conf.single_line .. conf.lead .. conf.code_block.starting)) then
+      local block_end_match_str = escape_special(conf.single_line .. conf.lead .. conf.code_block.ending)
+      local block_start_match = lines[li]:match(escape_special(conf.single_line .. conf.lead .. conf.code_block.starting) .. "%s*$")
+      assert(block_start_match, ("%s:%d: Syntax error: Nothing should come after the code block start\n"):format(path, li))
+      self.buf:writef("```%s\n", conf.lang)
+      li = li + 1
+      local start_mark = li
+      repeat
+        lines[li] = lines[li]:gsub(sub_str, opts.subs) -- I do it per line to make sure that I am in a doc comment before subbing out
+        self.buf:write(lines[li])
+        li = li + 1
+        assert(li <= #lines, ("%s:%d:%d: error: No closing found for code block"):format(path, start_mark, #lines[start_mark]))
+      until lines[li]:match(block_end_match_str)
+      assert(
+        lines[li]:match("^%s*" .. block_end_match_str .. "%s*$"),
+        ("%s:%d: error: code block end must not contain any extra characters"):format(path, li)
+      )
+      self.buf:write("```\n\n")
+    elseif lines[li]:match(escape_special(conf.single_line .. conf.lead)) then
+      lines[li] = lines[li]:gsub(sub_str, opts.subs)
+      local line_match, line_seq = lines[li]:match(escape_special(conf.single_line .. conf.lead) .. "(.*)$")
+      if line_match then
+        self.buf:writef("%s\n\n", trim_wspace(line_seq[1]))
+      end
+    elseif lines[li]:match(escape_special(conf.multi_line.starting .. conf.lead)) then
+      lines[li] = lines[li]:gsub(sub_str, opts.subs)
+      local block_start_match, block_start_seq = lines[li]:match(escape_special(conf.multi_line.starting .. conf.lead) .. "(.*)$")
+      if block_start_match then
+        local block = block_start_seq[1]
+        local block_end_match_str = escape_special(conf.lead .. conf.multi_line.ending)
+        local block_match, block_seq = block:match("(.*)" .. block_end_match_str)
+        if block_match then
+          block = trim_wspace(block_seq[1])
+          self.buf:writef("%s\n\n", block)
+          li = li + 1
+          continue
+        end
+        local start_mark = li
+        repeat
+          li = li + 1
+          lines[li] = lines[li]:gsub(sub_str, opts.subs)
+          block = block .. (lines[li])
+          assert(li <= #lines, ("%s:%d:%d: error: No closing found for multi line block"):format(path, start_mark, #lines[start_mark]))
+        until lines[li]:match(block_end_match_str)
+        assert(
+          lines[li]:match("^%s*" .. block_end_match_str .. "%s*$"),
+          ("%s:%d: error: multi_line block end must not contain any extra characters"):format(path, li)
+        )
+        local block_match, block_seq = block:match("(.*)" .. block_end_match_str)
+        if block_match then
+          block = trim_wspace(block_seq[1])
+          self.buf:writef("%s\n\n", block)
+        end
+      end
+    end
+    li = li + 1
+  end
+end
+
+--- ### ssdg:write_file
+--- Writes the contents of the instance buffer to a file at `path`
+---`
+function ssdg:write_file(path: string)
+---`
+  assert(path ~= "", "path must be set")
+  assert(self.buf:view() ~= "", "Can not write to file when the buffer is empty")
+  local file <close> = io.open(path, "w")
+  assert(file:isopen(), "Failed to open file at path: " .. path)
+  assert(file:write(self.buf:promote()), "Failed to write to file at path: " .. path)
+end
+
+return ssdg

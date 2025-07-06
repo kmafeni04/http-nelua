@@ -1,3 +1,5 @@
+--- ### http.nelua
+
 require "C.string"
 require "C.errno"
 
@@ -100,12 +102,29 @@ local mime_types = inline_map!(string, string, {
   ["7z"] = "application/x-7z-compressed",
 })
 
+--- #### http
+---`
 local http = @record{}
+---`
 
+--- #### http.json
+--- See [json.nelua](#jsonnelua)
+---`
 local http.json = json
+---`
+--- #### http.send_request
+--- See [send_request.nelua](#send_requestnelua)
+---`
 local http.send_request = send_request
+---`
+--- #### http.utils
+--- See [utils.nelua](#utilsnelua)
+---`
 local http.utils = utils
+---`
 
+--- #### http.Status
+---`
 local http.Status = @enum{
   Continue = 100,
   SwitchingProtocols = 101,
@@ -175,6 +194,7 @@ local http.Status = @enum{
   NotExtended = 510,
   NetworkAuthenticationRequired = 511,
 }
+---`
 
 local function status_text(code: http.Status): string
 	switch code do
@@ -308,12 +328,17 @@ local function status_text(code: http.Status): string
 end
 
 
+--- #### http.TriBool
+---`
 local http.TriBool= @enum{
   NULL = -1,
   FALSE,
   TRUE
 }
+---`
 
+--- #### http.Cookie 
+---`
 local http.Cookie = @record{
   name: string,
   val: string,
@@ -323,7 +348,10 @@ local http.Cookie = @record{
   secure: http.TriBool,
   httpOnly: http.TriBool
 }
+---`
 
+--- #### http.Response
+---`
 local http.Response = @record{
   body: string,
   status: http.Status,
@@ -331,14 +359,33 @@ local http.Response = @record{
   headers: hashmap(string, string),
   cookies: sequence(http.Cookie)
 }
+---`
 
+--- #### http.Response:destroy
+--- Destorys the response object and sets it to a zeroed state
+---`
 function http.Response:destroy()
+---`
   self.headers:destroy()
   self.cookies:destroy()
   self = (@*http.Response)()
 end
 
+--- #### http.Response:tostring
+--[[-
+This function converts your response into a http request string
+
+```:lang:
+app:get(nil, "/test", function(self: *http.Server)
+  local resp = self:text(200, "ok")
+  print(resp:tostring) -- "HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  return resp
+end)
+```
+-]]
+---`
 function http.Response:tostring(): string
+---`
   local status_msg = status_text(self.status)
   if self.content_type == "" then
     self.content_type = "text/html"
@@ -390,7 +437,23 @@ function http.Response:tostring(): string
   return sb:promote()
 end
 
+--- #### http.Response:set_header
+--[[-
+Sets a header to be sent with the response
+```:lang:
+app:get(nil, "/", function(self: *http.Server)
+  local resp = self:text(200, "ok")
+  local err = resp:set_header("name", "james")
+  if err ~= "" then
+    return self:error(err)
+  end
+  return resp
+end)
+```
+-]]
+---`
 function http.Response:set_header(key: string, val: string):  string
+---`
   if key == "" then
     return "Key cannot be an empty string"
   end
@@ -398,7 +461,27 @@ function http.Response:set_header(key: string, val: string):  string
   return ""
 end
 
+--- #### http.Response:set_cookie
+--[[-
+Sets a cookie to be sent with the response
+
+```:lang:
+app:get(nil, "/", function(self: *http.Server)
+  local resp = self:text(200, "ok")
+  local err = resp:set_cookie({
+    name = "name",
+    val = "james"
+  })
+  if err ~= "" then
+    return self:error(err)
+  end
+  return resp
+end)
+```
+-]]
+---`
 function http.Response:set_cookie(c: http.Cookie):  string
+---`
   if c.name == "" then
     return "A cookie value cannot have an empty string for its name"
   end
@@ -411,26 +494,38 @@ end
 
 local http.Server <forwarddecl> = @record{}
 
+--- #### http.ActionFn
+---`
 local http.ActionFn = @function(self: *http.Server): http.Response
+---`
 
 local Route = @record{
   methods: hashmap(string, http.ActionFn)
 }
 
-local http.Config = @record{
-  port: uinteger,
-  bind_host: string,
-  secret: string,
-  session_name: string,
-  log: http.TriBool
-}
-
+--- #### http.Session
+---`
 local http.Session = @record{
   vals: hashmap(string, string),
   send: boolean
 }
+---`
 
+--- #### http.Session:set_val
+--[[-
+This function is used to set values that will be stored in the sesssion
+
+```:lang:
+app:get(nil, "/", function(self: *http.Server)
+  self.session:set_val("name", "james")
+  self.session:set_val("age", "10")
+  return self:text(200, "ok")
+end)
+```
+-]]
+---`
 function http.Session:set_val(name: string, val: string): string
+---`
   if name == "" then
     return "A session value cannot have an empty string for its name"
   end
@@ -439,13 +534,30 @@ function http.Session:set_val(name: string, val: string): string
   return ""
 end
 
+--- #### Session:get_val(name: string): string
+--[[-
+This function is used to get values that are stored in the sesssion
+
+```:lang:
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self.session:get_val("name")
+  local age = self.session:get_val("age")
+  return self:text(200, "ok")
+end)
+```
+-]]
 function http.Session:get_val(name: string): string
   if not self.vals:has(name) then return "" end
   return self.vals[name]
 end
 
+--- #### http.BeforeFn
+---`
 local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
+---`
 
+--- #### http.Request
+---`
 local http.Request = @record{
   method: string,
   version: string,
@@ -454,7 +566,29 @@ local http.Request = @record{
   params: hashmap(string, string),
   body: string
 }
+---`
 
+--- #### http.Config
+--[[-
+Defaults are only set if the server is instantiated with [http.Server.new](#httpservernew)
+- port: The port you want the server to run on, default is `8080`
+- bind_host: The interface the server will bind to, default is `0.0.0.0`
+- secret: This is used to sign your session, default is `please-change-me`
+- session_name: Name of cookie used to store the session, default is `http_session`
+- log: This determines whether the server will log the request information to the console, default is [http.NotSetOrBool](#httpnotsetorbool).NOT_SET
+-]]
+---`
+local http.Config = @record{
+  port: uinteger,
+  bind_host: string,
+  secret: string,
+  session_name: string,
+  log: http.TriBool
+}
+---`
+
+--- #### http.Server
+---`
 http.Server = @record{
   config: http.Config,
   static_dir: string,
@@ -472,48 +606,129 @@ http.Server = @record{
   written: boolean,
   _fd: integer
 }
+---`
 
+--- #### http.Server:set_static
+--[[-
+This sets the directory when static files will be read from as well as the name that will be used for routing
+
+```:lang:
+local app = http.Server.new()
+
+app:set_static("./static", "static")
+
+app:get(nil, "/", function(self: *http.Server): http.Response
+  return self:html(200, '<link rel="stylesheet" href="/static/test.css" />')
+end)
+```
+-]]
+---`
 function http.Server:set_static(dir: string, name: string)
+---`
   assert(dir ~= "", "Static directory path can not be an empty string")
   assert(name ~= "", "Static directory name can not be an empty string")
   self.static_dir = dir
   self.static_name = name
 end
 
+--- #### http.Server:before_filter
+--[[-
+This adds functions that will run before every request
+The [http.BeforeFn](#httpbeforefn) returns a boolean and a [http.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
+
+```:lang:
+app:before_filter(function(self: *http.Server): (boolean, http.Response)
+  self.session:set_val("val", "test")
+  if self.req.current_path ~= self:url_for("test") and self.session:get_val("val") == "test" then
+    return true, self:redirect("/test")
+  end
+  return false, {}
+end)
+```
+-]]
+---`
 function http.Server:before_filter(fn: http.BeforeFn)
+---`
   self.before_funcs:push(fn)
 end
 
+--- #### Supported HTTP Methods
+---`
 ## local methods = {"get", "post", "put", "patch", "delete"}
+---`
 
 ## for _, method in ipairs(methods) do
-  function http.Server:#|method|#(name: facultative(string), route: string, action: http.ActionFn)
-    assert(not self.routes:has(route) or not self.routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
-    assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
-    ## if not name.type.is_niltype then
-      assert(name ~= "", ("Route name can not be an empty string: `%s`"):format(route))
-      if self.named_routes:has(name) then
-        assert(self.named_routes[name] == route, ("A name can not be used with more than one route group: `%s -> %s`"):format(name, route))
-      else
-        self.named_routes[name] = route
-      end
-    ## end
-    if route:match("[:%*]+.*") then
-      self.var_routes[route].methods[#[method:upper()]#] = action
+
+--- #### http.Server:#|method|#
+--[[-
+These are routing functions where `method` could be one of the [supported http methods](#supported-http-methods)
+
+```:lang:
+local http = require "path.to.http"
+
+local app = http.Server.new()
+
+app:get(nil, "/", function(self: *http.Server): http.Response
+  return self:text(http.Status.OK, "hello, world")
+end)
+```
+- name: This can be provided to set a name for a route, usually to be used with the [http.Server:url_for](#httpserverurlfor) function
+- route: The actual route that will be called
+- action: The function to be called when the route is hit
+-]]
+---`
+function http.Server:#|method|#(name: facultative(string), route: string, action: http.ActionFn)
+---`
+  assert(not self.routes:has(route) or not self.routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
+  assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
+  ## if not name.type.is_niltype then
+    assert(name ~= "", ("Route name can not be an empty string: `%s`"):format(route))
+    if self.named_routes:has(name) then
+      assert(self.named_routes[name] == route, ("A name can not be used with more than one route group: `%s -> %s`"):format(name, route))
     else
-      self.routes[route].methods[#[method:upper()]#] = action
+      self.named_routes[name] = route
     end
+  ## end
+  if route:match("[:%*]+.*") then
+    self.var_routes[route].methods[#[method:upper()]#] = action
+  else
+    self.routes[route].methods[#[method:upper()]#] = action
   end
+end
 ## end
 
+--- #### http.Server:get_header
+--[[-
+Gets a header from the request object
+
+```:lang:
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self:get_header("name")
+  return self:text(200, "ok")
+end)
+-]]
+---`
 function http.Server:get_header(name: string): string
+---`
   if not self.req.headers:has(name) then
     return ""
   end
   return self.req.headers[name]
 end
 
+--- #### http.Server:get_cookie
+--[[-
+Gets a cookie from the request header
+
+```:lang:
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self:get_cookie("name")
+  return self:text(200, "ok")
+end)
+-]]
+---`
 function http.Server:get_cookie(name: string): string
+---`
   local cookies = self:get_header("Cookie") .. ";"
   for _, cookie_span in cookies:gmatch("([%w_]+)=([^;]+);") do
     if cookie_span[0] == name then
@@ -523,12 +738,59 @@ function http.Server:get_cookie(name: string): string
   return ""
 end
 
+
+--- #### http.Server.UrlForOpts
+--- Used to alter the returned url from [http.Server:url_for](#httpserverurl_for)
+---`
 local http.Server.UrlForOpts = @record{
   route_params: hashmap(string, string),
   query_params: hashmap(string, string)
 }
+---`
 
+--- #### http.Server:url_for
+--[[-
+This function returns the route of the relevant name
+`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [http.Server.UrlForOpts](#httpserverurlforopts)
+
+Examples:
+
+```:lang:
+app:get("get_params", "/get_params", function(self: *http.Server)
+  local route_params: hashmap(string, string)
+  route_params["id"]   = "10"
+  route_params["name"] = "james"
+  route_params["*"]    = "splat"
+
+  local query_params: hashmap(string, string)
+  query_params["id"]   = "10"
+  query_params["name"] = "james"
+  return self:html(200, ("<a href='%s'>link</a>"):format(self:url_for("params", {
+    route_params = route_params,
+    query_params = query_params
+  })))
+end)
+
+app:get("params", "/params/:id/:name/*", function(self: *http.Server)
+  return self:text(200, self.req.params["id"] .. " " .. self.req.params["name"] .. " " .. self.req.params["*"])
+end)
+-- Should return "/params/10/james/splat?id=10&name=james"
+```
+
+```:lang:
+app:get(nil, "/", function(self: *http.Server): http.Response
+  return self:text(http.Status.OK, self:url_for("test"))
+end)
+-- will return "/really-long-name"
+
+app:get("test", "/really-long-name", function(self: *http.Server): http.Response
+  return self:text(http.Status.OK, "hello, world")
+end)
+```
+-]]
+---`
 function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string
+---`
   if self.named_routes:has(name) then
     local sb: stringbuilder
     local url = self.named_routes[name]
@@ -551,7 +813,11 @@ function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string
   return ""
 end
 
+--- #### http.Server:html
+--- helper function for commonly returned [http.Response](#httpresponse) to specify the response is `html`
+---`
 function http.Server:html(code: http.Status, html: string): http.Response
+---`
   return {
     body = html,
     status =  code,
@@ -559,7 +825,14 @@ function http.Server:html(code: http.Status, html: string): http.Response
   }
 end
 
+--- #### http.Server:json
+--[[-
+helper function for commonly returned [http.Response](#httpresponse) to specify the response is `json`
+-`body`: Can either be a string or a json serializable object
+-]]
+---`
 function http.Server:json(code: http.Status, body: overload(string, auto)): http.Response
+---`
   ## if body.type.is_string then
     local val = body
   ## else
@@ -573,7 +846,11 @@ function http.Server:json(code: http.Status, body: overload(string, auto)): http
   }
 end
 
+--- #### http.Server:text
+--- helper function for commonly returned [http.Response](#httpresponse) to specify the response is `text`
+---`
 function http.Server:text(code: http.Status, text: string): http.Response
+---`
   return {
     body = text,
     status =  code,
@@ -581,7 +858,23 @@ function http.Server:text(code: http.Status, text: string): http.Response
   }
 end
 
+--- #### http.Server:redirect
+--[[-
+helper function to specify that the return should be a redirect and redirect to `path`
+
+```:lang:
+app:get(nil, "/", function(self: *http.Server): http.Response
+  return self:redirect(self:url_for("actual"))
+end)
+
+app:get("actual", "/actual-path", function(self: *http.Server): http.Response
+  return self:text(http.Status.OK, "ok")
+end)
+```
+-]]
+---`
 function http.Server:redirect(path: string): http.Response
+---`
   local headers: hashmap(string, string)
   headers["Location"] = path
   return {
@@ -591,13 +884,34 @@ function http.Server:redirect(path: string): http.Response
   }
 end
 
+--- #### http.Server:error
+--- helper function that returns a http text response with a 500 error code and your `msg`
+---`
 function http.Server:error(msg: string): http.Response
+---`
   return self:text(http.Status.InternalServerError, "Internal Server Error: " .. msg)
 end
 
+--- #### http.csrf
+---`
 local http.csrf = @record{}
+---`
 
+--- #### http.csrf.generate_token
+--[[-
+This function generates a csrf token that is stored in your session and returns it as a value
+If a token already exists, it returns that and doesn't create a new one
+
+```:lang:
+app:before_filter(function(self: *http.Server): (boolean, http.Response)
+  local token = http.csrf.generate_token(self)
+  return false, {}
+end)
+```
+-]]
+---`
 function http.csrf.generate_token(self: *http.Server): string
+---`
   local token = self.session:get_val("csrf_token")
   if token ~= "" then
     return token
@@ -613,7 +927,22 @@ function http.csrf.generate_token(self: *http.Server): string
   return val
 end
 
+--- #### http.csrf.validate_token
+--[[-
+This function checks that there is a csrf token in your session and that the token passed in your request params matches it
+
+```:lang:
+app:post(nil, "/test", function(self: *http.Server)
+  if not http.csrf.validate_token(self) then
+    return self:text(403, "forbidden")
+  end
+  return self:text(200, "ok")
+end)
+```
+-]]
+---`
 function http.csrf.validate_token(self: *http.Server): boolean
+---`
   if self.session:get_val("csrf_token") == "" then
     return false
   end
@@ -815,7 +1144,14 @@ local function handle_request(buffer_str: string, self: *http.Server): http.Resp
   return resp
 end
 
+--- #### http.Server:serve
+--[[-
+This function starts the server
+It should always be the last line of your file
+-]]
+---`
 function http.Server:serve()
+---`
   local listen_fd: integer, new_fd: integer
   local server_addr: sockaddr_in, client_addr: sockaddr_in
   local client_len: cuint = #sockaddr_in
@@ -943,6 +1279,8 @@ function http.Server:serve()
   close(listen_fd)
 end
 
+--- #### http.MockRequestOpts
+---`
 local http.MockRequestOpts = @record{
   method: string,
   params: hashmap(string, string),
@@ -950,8 +1288,13 @@ local http.MockRequestOpts = @record{
   cookies: hashmap(string, string),
   session_vals: hashmap(string, string)
 }
+---`
 
+--- #### http.Server:mock_request
+--- This function is meant for testing and helps you simulate requests to your server
+---`
 function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (http.Response, string)
+---`
   local sb: stringbuilder
   local param_str: string
   if next(opts.params) then
@@ -1021,7 +1364,24 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
   return handle_request(req_str, self), req_str
 end
 
+--- #### http.Server.new
+--[[-
+This function returns a new [http.Server](#httpserver) instance that will be used throughout your app
+
+The `config` param can be ommited and default values will be used, it is of type [http.Config](#httpserverconfig)
+
+```:lang:
+local http = require "path.to.http"
+
+local app = http.new({
+  secret = os.getenv("SECRET"),
+  session_name = "my_app"
+})
+```
+-]]
+---`
 function http.Server.new(config: http.Config): http.Server
+---`
   config.port = config.port == 0 and 8080 or config.port
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
   config.session_name = config.session_name == "" and "http_session" or config.session_name
