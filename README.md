@@ -2,6 +2,13 @@
 
 A sufficiently featured webserver for nelua
 
+## Requirements
+- nelua
+- openssl
+- glibc poll
+- glibc unistd
+- glibc socket
+
 ## Quick start
 
 ```lua
