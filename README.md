@@ -653,7 +653,7 @@ Below is the default implementation
 
 ### json.nelua
 
-### JsonNodeType enum
+#### JsonNodeType enum
 
 ```lua
 local JsonNodeType = @enum{
@@ -666,7 +666,7 @@ local JsonNodeType = @enum{
 }
 ```
 
-### JsonNode record
+#### JsonNode record
 
 Representing an individual json node after parsing
 
@@ -706,7 +706,7 @@ elseif node:is_null() then
 end
 ```
 
-### JsonNode:is
+#### JsonNode:is
 
 Returns a string stating the node type
 
@@ -714,7 +714,7 @@ Returns a string stating the node type
 function JsonNode:is(): string
 ```
 
-### JsonNode:is_obj
+#### JsonNode:is_obj
 
 Returns true if node is an object
 
@@ -722,7 +722,7 @@ Returns true if node is an object
 function JsonNode:is_obj(): boolean
 ```
 
-### JsonNode:is_num
+#### JsonNode:is_num
 
 Returns true if node is a number
 
@@ -730,7 +730,7 @@ Returns true if node is a number
 function JsonNode:is_num(): boolean
 ```
 
-### JsonNode:is_str
+#### JsonNode:is_str
 
 Returns true if node is a string
 
@@ -738,7 +738,7 @@ Returns true if node is a string
 function JsonNode:is_str(): boolean
 ```
 
-### JsonNode:is_arr
+#### JsonNode:is_arr
 
 Returns true if node is an array
 
@@ -746,7 +746,7 @@ Returns true if node is an array
 function JsonNode:is_arr(): boolean
 ```
 
-### JsonNode:is_bool
+#### JsonNode:is_bool
 
 Returns true if node is a boolean
 
@@ -754,7 +754,7 @@ Returns true if node is a boolean
 function JsonNode:is_bool(): boolean
 ```
 
-### JsonNode:is_null
+#### JsonNode:is_null
 
 Returns true if node is a null value
 
@@ -762,7 +762,7 @@ Returns true if node is a null value
 function JsonNode:is_null(): boolean
 ```
 
-### JsonNode:get_obj
+#### JsonNode:get_obj
 
 Returns a hashmap of strings to JsonNodes from the JsonNode
 
@@ -770,7 +770,7 @@ Returns a hashmap of strings to JsonNodes from the JsonNode
 function JsonNode:get_obj(): hashmap(string, JsonNode)
 ```
 
-### JsonNode:get_num
+#### JsonNode:get_num
 
 Returns a number from the JsonNode
 
@@ -778,7 +778,7 @@ Returns a number from the JsonNode
 function JsonNode:get_num(): number
 ```
 
-### JsonNode:get_str
+#### JsonNode:get_str
 
 Returns a string from the JsonNode
 
@@ -786,7 +786,7 @@ Returns a string from the JsonNode
 function JsonNode:get_str(): string
 ```
 
-### JsonNode:get_arr
+#### JsonNode:get_arr
 
 Returns an array from the JsonNode
 
@@ -794,7 +794,7 @@ Returns an array from the JsonNode
 function JsonNode:get_arr(): sequence(JsonNode)
 ```
 
-### JsonNode:get_bool
+#### JsonNode:get_bool
 
 Returns a boolean from the JsonNode
 
@@ -802,7 +802,7 @@ Returns a boolean from the JsonNode
 function JsonNode:get_bool(): boolean
 ```
 
-### JsonNode:get_null
+#### JsonNode:get_null
 
 Returns a null value(false) from the JsonNode
 
@@ -810,19 +810,19 @@ Returns a null value(false) from the JsonNode
 function JsonNode:get_null(): boolean
 ```
 
-### json record
+#### json record
 
 ```lua
 local json = @record{}
 ```
 
-### json.JsonNode
+#### json.JsonNode
 
 ```lua
 local json.JsonNode = JsonNode
 ```
 
-### json.parse_file
+#### json.parse_file
 
 Parses a JSON file into a JsonNode structure.
 
@@ -846,7 +846,7 @@ end
 function json.parse_file(file_path: string): (JsonNode, string)
 ```
 
-### json.parse_string
+#### json.parse_string
 
 Parses a JSON string into a JsonNode structure.
 
@@ -872,7 +872,7 @@ end
 function json.parse_string(content: string): (JsonNode, string)
 ```
 
-### json.parse_string_to_record
+#### json.parse_string_to_record
 
 Directly parses a JSON string into a nelua record.
 
@@ -920,7 +920,7 @@ Type Mapping:
 function json.parse_string_to_record(content: string, rec: type): (#[rec.value]#, string)
 ```
 
-### json.parse_file_to_record
+#### json.parse_file_to_record
 
 Directly parses a JSON file into a nelua record, see [json.parse_string_to_record](#jsonparse_string_to_record) for more information
 
@@ -928,7 +928,7 @@ Directly parses a JSON file into a nelua record, see [json.parse_string_to_recor
 function json.parse_file_to_record(file_path: string, rec: type)
 ```
 
-### json.serialize_record
+#### json.serialize_record
 
 Converts a nelua record into a JSON string.
 
@@ -960,7 +960,7 @@ NB: All record fields must be of supported types
 function json.serialize_record(rec: auto): string
 ```
 
-### json.pretty_serialize_record
+#### json.pretty_serialize_record
 
 Converts a nelua record into a pretty JSON string.
 

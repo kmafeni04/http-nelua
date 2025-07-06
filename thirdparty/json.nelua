@@ -1,3 +1,4 @@
+--- ### json.nelua
 require "io"
 require "utf8"
 
@@ -205,7 +206,7 @@ local function tokenize(str: string): (sequence(Token), string)
   return tokens, ""
 end
 
---- ### JsonNodeType enum
+--- #### JsonNodeType enum
 ---`
 local JsonNodeType = @enum{
   NULL = 0,
@@ -233,7 +234,7 @@ local function json_node_type_tostring(jntype: JsonNodeType)
   return ("Unknown type `%s`"):format(jntype)
 end
 
---- ### JsonNode record
+--- #### JsonNode record
 --- Representing an individual json node after parsing
 ---`
 local JsonNode = @record{
@@ -300,7 +301,7 @@ end
 ```
 -]]
 
---- ### JsonNode:is
+--- #### JsonNode:is
 --- Returns a string stating the node type
 ---`
 function JsonNode:is(): string
@@ -308,7 +309,7 @@ function JsonNode:is(): string
   return json_node_type_tostring(self.type)
 end
 
---- ### JsonNode:is_obj
+--- #### JsonNode:is_obj
 --- Returns true if node is an object
 ---`
 function JsonNode:is_obj(): boolean
@@ -316,7 +317,7 @@ function JsonNode:is_obj(): boolean
   return self.type == JsonNodeType.OBJECT
 end
 
---- ### JsonNode:is_num
+--- #### JsonNode:is_num
 --- Returns true if node is a number
 ---`
 function JsonNode:is_num(): boolean
@@ -324,7 +325,7 @@ function JsonNode:is_num(): boolean
   return self.type == JsonNodeType.NUMBER
 end
 
---- ### JsonNode:is_str
+--- #### JsonNode:is_str
 --- Returns true if node is a string
 ---`
 function JsonNode:is_str(): boolean
@@ -332,7 +333,7 @@ function JsonNode:is_str(): boolean
   return self.type == JsonNodeType.STRING
 end
 
---- ### JsonNode:is_arr
+--- #### JsonNode:is_arr
 --- Returns true if node is an array
 ---`
 function JsonNode:is_arr(): boolean
@@ -340,7 +341,7 @@ function JsonNode:is_arr(): boolean
   return self.type == JsonNodeType.ARRAY
 end
 
---- ### JsonNode:is_bool
+--- #### JsonNode:is_bool
 --- Returns true if node is a boolean
 ---`
 function JsonNode:is_bool(): boolean
@@ -348,7 +349,7 @@ function JsonNode:is_bool(): boolean
   return self.type == JsonNodeType.BOOLEAN
 end
 
---- ### JsonNode:is_null
+--- #### JsonNode:is_null
 --- Returns true if node is a null value
 ---`
 function JsonNode:is_null(): boolean
@@ -357,7 +358,7 @@ function JsonNode:is_null(): boolean
 end
 
 
---- ### JsonNode:get_obj
+--- #### JsonNode:get_obj
 --- Returns a hashmap of strings to JsonNodes from the JsonNode
 ---`
 function JsonNode:get_obj(): hashmap(string, JsonNode)
@@ -365,7 +366,7 @@ function JsonNode:get_obj(): hashmap(string, JsonNode)
   return self.val.obj
 end
 
---- ### JsonNode:get_num
+--- #### JsonNode:get_num
 --- Returns a number from the JsonNode
 ---`
 function JsonNode:get_num(): number
@@ -373,7 +374,7 @@ function JsonNode:get_num(): number
   return self.val.num
 end
 
---- ### JsonNode:get_str
+--- #### JsonNode:get_str
 --- Returns a string from the JsonNode
 ---`
 function JsonNode:get_str(): string
@@ -381,7 +382,7 @@ function JsonNode:get_str(): string
   return self.val.str
 end
 
---- ### JsonNode:get_arr
+--- #### JsonNode:get_arr
 --- Returns an array from the JsonNode
 ---`
 function JsonNode:get_arr(): sequence(JsonNode)
@@ -389,7 +390,7 @@ function JsonNode:get_arr(): sequence(JsonNode)
   return self.val.arr
 end
 
---- ### JsonNode:get_bool
+--- #### JsonNode:get_bool
 --- Returns a boolean from the JsonNode
 ---`
 function JsonNode:get_bool(): boolean
@@ -397,7 +398,7 @@ function JsonNode:get_bool(): boolean
   return self.val.bol
 end
 
---- ### JsonNode:get_null
+--- #### JsonNode:get_null
 --- Returns a null value(false) from the JsonNode
 ---`
 function JsonNode:get_null(): boolean
@@ -595,17 +596,17 @@ function Parser:parse(): (JsonNode, string)
   return self:parse_from_token(self:peek())
 end
 
---- ### json record
+--- #### json record
 ---`
 local json = @record{}
 ---`
 
---- ### json.JsonNode
+--- #### json.JsonNode
 ---`
 local json.JsonNode = JsonNode
 ---`
 
---- ### json.parse_file
+--- #### json.parse_file
 --[[-
 Parses a JSON file into a JsonNode structure.
 
@@ -645,7 +646,7 @@ function json.parse_file(file_path: string): (JsonNode, string)
   return node, err
 end
 
---- ### json.parse_string
+--- #### json.parse_string
 --[[-
 Parses a JSON string into a JsonNode structure.
 
@@ -706,7 +707,7 @@ end
   end
 ]]
 
---- ### json.parse_string_to_record
+--- #### json.parse_string_to_record
 --[[-
 Directly parses a JSON string into a nelua record.
 
@@ -855,7 +856,7 @@ function json.parse_string_to_record(content: string, rec: type): (#[rec.value]#
   return traverse_node(node, rec)
 end
 
---- ### json.parse_file_to_record
+--- #### json.parse_file_to_record
 --- Directly parses a JSON file into a nelua record, see [json.parse_string_to_record](#jsonparse_string_to_record) for more information
 ---`
 function json.parse_file_to_record(file_path: string, rec: type)
@@ -992,7 +993,7 @@ local function serialize_record(rec: auto, indent: facultative(uinteger)): strin
   return sb:promote()
 end
 
---- ### json.serialize_record
+--- #### json.serialize_record
 --[[-
 Converts a nelua record into a JSON string.
 
@@ -1026,7 +1027,7 @@ function json.serialize_record(rec: auto): string
   return serialize_record(rec)
 end
 
---- ### json.pretty_serialize_record
+--- #### json.pretty_serialize_record
 --[[-
 Converts a nelua record into a pretty JSON string.
 
