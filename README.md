@@ -323,7 +323,7 @@ Defaults are only set if the server is instantiated with [http.Server.new](#http
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
 - session_name: Name of cookie used to store the session, default is `http_session`
-- log: This determines whether the server will log the request information to the console, default is [http.NotSetOrBool](#httpnotsetorbool).NOT_SET
+- log: This determines whether the server will log the request information to the console, default is [http.TriBool](#httptribool).NULL
 
 ```lua
 local http.Config = @record{
@@ -599,7 +599,7 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
 
 This function returns a new [http.Server](#httpserver) instance that will be used throughout your app
 
-The `config` param can be ommited and default values will be used, it is of type [http.Config](#httpserverconfig)
+The `config` param can be ommited and default values will be used, it is of type [http.Config](#httpconfig)
 
 ```lua
 local http = require "path.to.http"
