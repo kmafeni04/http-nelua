@@ -112,7 +112,7 @@ local function bits_to_byte(bits: sequence(integer))
   return sum
 end
 
---- #### Utils.b64_encode(input: string): string
+--- #### Utils.b64_encode
 --[[-
 This function encodes a string to base64
 
@@ -158,7 +158,7 @@ function Utils.b64_encode(input: string): string
   return sb:promote()
 end
 
---- #### Utils.b64_decode(input: string): string
+--- #### Utils.b64_decode
 --[[-
 This function decodes a string from base64
 
@@ -204,7 +204,18 @@ function Utils.b64_decode(data: string): string
   return sb:promote()
 end
 
+--- #### Utils.trim_wspace
+--[[-
+Trims whitespae off from the ends of a string
+
+```:lang:
+print(Utils.trim_wspace("   hello   "))
+-- hello
+```
+-]]
+---`
 function Utils.trim_wspace(s: string)
+---`
   local str_match, str_seq = s:match("^%s*(.-)%s*$")
   if not str_match then return s end
   return str_seq[1]

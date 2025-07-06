@@ -1183,7 +1183,7 @@ print(Utils.sign("key", "data"))
 function Utils.sign(key: cstring, data: cstring): string
 ```
 
-#### Utils.b64_encode(input: string): string
+#### Utils.b64_encode
 
 This function encodes a string to base64
 
@@ -1196,7 +1196,7 @@ print(Utils.b64_encode("hello world"))
 function Utils.b64_encode(input: string): string
 ```
 
-#### Utils.b64_decode(input: string): string
+#### Utils.b64_decode
 
 This function decodes a string from base64
 
@@ -1207,6 +1207,19 @@ print(Utils.b64_encode("aGVsbG8gd29ybGQ="))
 
 ```lua
 function Utils.b64_decode(data: string): string
+```
+
+#### Utils.trim_wspace
+
+Trims whitespae off from the ends of a string
+
+```lua
+print(Utils.trim_wspace("   hello   "))
+-- hello
+```
+
+```lua
+function Utils.trim_wspace(s: string)
 ```
 
 ---
