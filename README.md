@@ -52,6 +52,8 @@ local http.utils = utils
 
 #### http.Status
 
+Enum list of different possible HTTP status codes
+
 ```lua
 local http.Status = @enum{
   Continue = 100,
@@ -286,6 +288,34 @@ local http.Request = @record{
 }
 ```
 
+#### http.Request:get_header
+
+Gets a header from the request object
+
+```lua
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self.req:get_header("name")
+  return self:text(200, "ok")
+end)
+
+```lua
+function http.Request:get_header(name: string): string
+```
+
+#### http.Request:get_cookie
+
+Gets a cookie from the request object
+
+```lua
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self.req:get_cookie("name")
+  return self:text(200, "ok")
+end)
+
+```lua
+function http.Request:get_cookie(name: string): string
+```
+
 #### http.Config
 
 Defaults are only set if the server is instantiated with [http.Server.new](#httpservernew)
@@ -389,34 +419,6 @@ end)
 
 ```lua
 function http.Server:#|method|#(name: facultative(string), route: string, action: http.ActionFn)
-```
-
-#### http.Server:get_header
-
-Gets a header from the request object
-
-```lua
-app:get(nil, "/test", function(self: *http.Server)
-  local name = self:get_header("name")
-  return self:text(200, "ok")
-end)
-
-```lua
-function http.Server:get_header(name: string): string
-```
-
-#### http.Server:get_cookie
-
-Gets a cookie from the request header
-
-```lua
-app:get(nil, "/test", function(self: *http.Server)
-  local name = self:get_cookie("name")
-  return self:text(200, "ok")
-end)
-
-```lua
-function http.Server:get_cookie(name: string): string
 ```
 
 #### http.Server.UrlForOpts
@@ -610,6 +612,43 @@ local app = http.new({
 
 ```lua
 function http.Server.new(config: http.Config): http.Server
+```
+
+To write to the client, the `write` method is called
+Below is the default implementation
+
+```lua
+  s.write = function(self:*http.Server, s: string): (boolean, string)
+    local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
+    if written_bytes == -1 then
+      local err_msg = C.strerror(C.errno)
+      return false, (@string)(err_msg)
+    end
+    return true, ""
+  end
+```
+
+When a request does not match any of the routes you've defined, the `default_route` method will be called to create a response.
+Below is the default implementation
+
+```lua
+  s.default_route = function(self: *http.Server)
+    if self.req.current_path:match("./$") then
+      local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
+      return self:redirect(stripped)
+    else
+      return self:handle_404()
+    end
+  end
+```
+
+In the default `default_route`, the method `handle_404` is called when the path of the request did not match any routes.
+Below is the default implementation
+
+```lua
+  s.handle_404 = function(self: *http.Server)
+    return self:text(http.Status.NotFound, "Page or resource not found")
+  end
 ```
 
 ### json.nelua

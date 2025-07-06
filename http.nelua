@@ -124,6 +124,7 @@ local http.utils = utils
 ---`
 
 --- #### http.Status
+--- Enum list of different possible HTTP status codes
 ---`
 local http.Status = @enum{
   Continue = 100,
@@ -568,6 +569,47 @@ local http.Request = @record{
 }
 ---`
 
+--- #### http.Request:get_header
+--[[-
+Gets a header from the request object
+
+```:lang:
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self.req:get_header("name")
+  return self:text(200, "ok")
+end)
+-]]
+---`
+function http.Request:get_header(name: string): string
+---`
+  if not self.headers:has(name) then
+    return ""
+  end
+  return self.headers[name]
+end
+
+--- #### http.Request:get_cookie
+--[[-
+Gets a cookie from the request object
+
+```:lang:
+app:get(nil, "/test", function(self: *http.Server)
+  local name = self.req:get_cookie("name")
+  return self:text(200, "ok")
+end)
+-]]
+---`
+function http.Request:get_cookie(name: string): string
+---`
+  local cookies = self:get_header("Cookie") .. ";"
+  for _, cookie_span in cookies:gmatch("([%w_]+)=([^;]+);") do
+    if cookie_span[0] == name then
+      return cookie_span[1]
+    end
+  end
+  return ""
+end
+
 --- #### http.Config
 --[[-
 Defaults are only set if the server is instantiated with [http.Server.new](#httpservernew)
@@ -696,48 +738,6 @@ function http.Server:#|method|#(name: facultative(string), route: string, action
   end
 end
 ## end
-
---- #### http.Server:get_header
---[[-
-Gets a header from the request object
-
-```:lang:
-app:get(nil, "/test", function(self: *http.Server)
-  local name = self:get_header("name")
-  return self:text(200, "ok")
-end)
--]]
----`
-function http.Server:get_header(name: string): string
----`
-  if not self.req.headers:has(name) then
-    return ""
-  end
-  return self.req.headers[name]
-end
-
---- #### http.Server:get_cookie
---[[-
-Gets a cookie from the request header
-
-```:lang:
-app:get(nil, "/test", function(self: *http.Server)
-  local name = self:get_cookie("name")
-  return self:text(200, "ok")
-end)
--]]
----`
-function http.Server:get_cookie(name: string): string
----`
-  local cookies = self:get_header("Cookie") .. ";"
-  for _, cookie_span in cookies:gmatch("([%w_]+)=([^;]+);") do
-    if cookie_span[0] == name then
-      return cookie_span[1]
-    end
-  end
-  return ""
-end
-
 
 --- #### http.Server.UrlForOpts
 --- Used to alter the returned url from [http.Server:url_for](#httpserverurl_for)
@@ -1039,7 +1039,7 @@ local function handle_request(buffer_str: string, self: *http.Server): http.Resp
   end
 
   self.session.vals = {}
-  local cookie, err = self:get_cookie(self.config.session_name)
+  local cookie, err = self.req:get_cookie(self.config.session_name)
   if cookie ~= "" then
     local match, match_seq = cookie:match("(.+)///(.+)")
     local signature = http.utils.b64_decode(match_seq[2])
@@ -1391,6 +1391,11 @@ function http.Server.new(config: http.Config): http.Server
   s.static_dir = "./static"
   s.static_name = "static"
 
+--[[-
+To write to the client, the `write` method is called
+Below is the default implementation
+-]]
+---`
   s.write = function(self:*http.Server, s: string): (boolean, string)
     local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
     if written_bytes == -1 then
@@ -1399,7 +1404,13 @@ function http.Server.new(config: http.Config): http.Server
     end
     return true, ""
   end
+---`
 
+--[[-
+When a request does not match any of the routes you've defined, the `default_route` method will be called to create a response.
+Below is the default implementation
+-]]
+---`
   s.default_route = function(self: *http.Server)
     if self.req.current_path:match("./$") then
       local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
@@ -1408,10 +1419,17 @@ function http.Server.new(config: http.Config): http.Server
       return self:handle_404()
     end
   end
+---`
 
+--[[-
+In the default `default_route`, the method `handle_404` is called when the path of the request did not match any routes.
+Below is the default implementation
+-]]
+---`
   s.handle_404 = function(self: *http.Server)
     return self:text(http.Status.NotFound, "Page or resource not found")
   end
+---`
   return s
 end
 

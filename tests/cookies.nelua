@@ -23,8 +23,8 @@ do
   local app = http.Server.new()
   app.req.headers["Cookie"] = "name=james; age=10"
 
-  local name = app:get_cookie("name")
-  local age = app:get_cookie("age")
+  local name = app.req:get_cookie("name")
+  local age = app.req:get_cookie("age")
   assert(name == "james")
   assert(age == "10")
 end
