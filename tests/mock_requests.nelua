@@ -1,7 +1,5 @@
 local http = require "..http"
 
-require "..thirparty.inline_map"
-
 local write_sb: stringbuilder
 
 local app = http.Server.new({

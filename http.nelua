@@ -10,6 +10,8 @@ require ".libs.socket"
 require ".libs.unistd"
 require ".libs.poll"
 
+require ".thirparty.inline_map"
+
 local AnsiColor = require ".libs.ansicolor"
 
 local Crypt = require ".libs.cryptography"
@@ -639,7 +641,7 @@ local function escape_special(s: string)
   return s
 end
 
-function http.handle_request(buffer_str: string, self: *http.Server): http.Response
+local function handle_request(buffer_str: string, self: *http.Server): http.Response
   local method: string, uri: string, version: string
   local request_headers: hashmap(string, string)
   local i = 0
@@ -913,7 +915,7 @@ function http.Server:serve()
           local str: string = &buffer
           self._fd = fds[i].fd
           
-          local resp = http.handle_request(str, self)
+          local resp = handle_request(str, self)
 
           if not self.written then
             self.written = self:write(resp:tostring())
@@ -1015,7 +1017,7 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
     sb:write(param_str)
   end
   local req_str = sb:promote()
-  return http.handle_request(req_str, self), req_str
+  return handle_request(req_str, self), req_str
 end
 
 function http.Server.new(config: http.Config): http.Server

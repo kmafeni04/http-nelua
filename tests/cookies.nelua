@@ -16,8 +16,7 @@ do
     return resp
   end)
 
-  local str1 = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  http.handle_request(str1, &app)
+  app:mock_request("/")
 end
 
 do
