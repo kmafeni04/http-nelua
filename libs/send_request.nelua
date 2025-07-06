@@ -5,8 +5,8 @@
 
 require "C.stdio"
 
-require ".socket"
-require ".unistd"
+require "..thirdparty.socket"
+require "..thirdparty.unistd"
 
 local SSL_METHOD <cimport, nodecl> = @record{}
 local SSL_CTX <cimport, nodecl> = @record{}

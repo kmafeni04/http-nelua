@@ -6,18 +6,18 @@ require "io"
 require "hashmap"
 require "string"
 
-require ".libs.socket"
-require ".libs.unistd"
-require ".libs.poll"
+require ".thirdparty.socket"
+require ".thirdparty.unistd"
+require ".thirdparty.poll"
 
-require ".thirparty.inline_map"
+require ".thirdparty.inline_map"
 
-local AnsiColor = require ".libs.ansicolor"
+local AnsiColor = require ".thirdparty.ansicolor"
+local json = require ".thirdparty.json"
 
 local Crypt = require ".libs.cryptography"
 local send_request = require ".libs.send_request"
 local utils = require ".libs.utils"
-local json = require ".libs.json"
 local logger = require ".libs.logger"
 
 local mime_types = inline_map!(string, string, {
