@@ -6,11 +6,11 @@
 local logger = @record{}
 ---`
 
---- ### logger.NotSetOrBool
+--- ### logger.TriBool
 --- Used to determine if the logger should print to console or not
 ---`
-local logger.NotSetOrBool = @enum{
-  NOT_SET = 0,
+local logger.TriBool = @enum{
+  NULL = -1,
   TRUE,
   FALSE
 }
@@ -19,10 +19,10 @@ local logger.NotSetOrBool = @enum{
 --- ### logger.log
 --- If the `log` is not set or set to true, will print `s`
 ---`
-function logger.log(log: logger.NotSetOrBool, s: string)
+function logger.log(log: logger.TriBool, s: string)
 ---`
   switch log do
-    case logger.NotSetOrBool.NOT_SET, logger.NotSetOrBool.TRUE then
+    case logger.TriBool.NULL, logger.TriBool.TRUE then
       print(s)
   end
 end

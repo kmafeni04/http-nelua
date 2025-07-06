@@ -1,7 +1,7 @@
 local http = require ".....http"
 local datastar = require "...datastar"
 
-local app = http.new()
+local app = http.Server.new()
 
 app:get("index", "/", function(self: *http.Server)
   return self:html(200,

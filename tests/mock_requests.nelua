@@ -1,11 +1,9 @@
 local http = require "..http"
 
-require "..thirparty.inline_map"
-
 local write_sb: stringbuilder
 
-local app = http.new({
-  log = http.NotSetOrBool.FALSE
+local app = http.Server.new({
+  log = http.TriBool.FALSE
 })
 
 app.write = function(self: *http.Server, s: string): (boolean, string)
@@ -65,7 +63,7 @@ app:get(nil, "/session_value", function(self: *http.Server)
 end)
 
 app:post(nil, "/all", function(self: *http.Server)
-  local name = self:get_cookie("name")
+  local name = self.req:get_cookie("name")
   if name == "" then
     return self:error("name was an empty string")
   end

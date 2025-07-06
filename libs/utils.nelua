@@ -1,25 +1,63 @@
+--- ### utils.nelua
+
 require "string"
 require "math"
 require "stringbuilder"
 
 local Crypt = require ".cryptography"
 
+--- #### Utils
+---`
 local Utils = @record{}
+---`
 
+--- #### Utils.url_escape
+--[[-
+This function escapes a string so it is url friendly
+
+```:lang:
+print(Utils.url_escape("hello world"))
+-- hello%20world
+```
+-]]
+---`
 function Utils.url_escape(s: string): string
+---`
   return (string.gsub(s, "([^A-Za-z0-9_])", function(c: string)
       return string.format("%%%02x", string.byte(c))
   end))
 end
 
+--- #### Utils.url_unescape
+--[[-
+This function unescapes a url string
+
+```:lang:
+print(Utils.url_escape("hello%20world"))
+-- hello world
+```
+-]]
+---`
 function Utils.url_unescape(s: string): string
+---`
   s = s:gsub("+", " ")
   return (string.gsub(s, "%%(%x%x)", function(hex: string)
       return string.char(tonumber(hex, 16))
   end))
 end
 
+--- #### Utils.slugify
+--[[-
+This functions converts a string to a slug suitable for a url
+
+```:lang:
+print(Utils.slugify("Hello, World! Welcome to ChatGPT: AI for Everyone 🚀"))
+-- hello-world-welcome-to-chatgpt-ai-for-everyone
+```
+-]]
+---`
 function Utils.slugify(s: string): string
+---`
  local slug = (s:gsub("[%s_]+", "-"):gsub("[^%w%-]+", ""):gsub("-+", "-")):lower()
   if slug:match("-$") then
     slug = slug:sub(1, #slug - 1)
@@ -27,7 +65,18 @@ function Utils.slugify(s: string): string
   return slug
 end
 
+--- #### Utils.sign
+--[[-
+This function is what is used to sign session data
+
+```:lang:
+print(Utils.sign("key", "data"))
+-- 5031fe3d989c6d1537a013fa6e739da23463fdaec3b70137d828e36ace221bd0
+```
+-]]
+---`
 function Utils.sign(key: cstring, data: cstring): string
+---`
   local len: cint
   local hmac_result = Crypt.hmac(Crypt.sha256(), key, #key, data, #data, nilptr, &len)
 
@@ -63,7 +112,18 @@ local function bits_to_byte(bits: sequence(integer))
   return sum
 end
 
+--- #### Utils.b64_encode(input: string): string
+--[[-
+This function encodes a string to base64
+
+```:lang:
+print(Utils.b64_encode("hello world"))
+-- aGVsbG8gd29ybGQ=
+```
+-]]
+---`
 function Utils.b64_encode(input: string): string
+---`
   local bytes: sequence(integer)
   for i = 1, #input do
     bytes[i] = input:byte(i)
@@ -98,7 +158,19 @@ function Utils.b64_encode(input: string): string
   return sb:promote()
 end
 
+--- #### Utils.b64_decode(input: string): string
+--[[-
+This function decodes a string from base64
+
+```:lang:
+print(Utils.b64_encode("aGVsbG8gd29ybGQ="))
+-- hello world
+```
+
+-]]
+---`
 function Utils.b64_decode(data: string): string
+---`
   data = data:gsub("=", "")
   local bits: sequence(integer)
 
