@@ -132,4 +132,10 @@ function Utils.b64_decode(data: string): string
   return sb:promote()
 end
 
+function Utils.trim_wspace(s: string)
+  local str_match, str_seq = s:match("^%s*(.-)%s*$")
+  if not str_match then return s end
+  return str_seq[1]
+end
+
 return Utils

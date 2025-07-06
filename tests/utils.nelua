@@ -49,3 +49,9 @@ do
   local expected = "hello world"
   assert(expected == result)
 end
+
+do
+  local result = utils.trim_wspace("     hello  \t")
+  local expected = "hello"
+  assert(expected == result)
+end
