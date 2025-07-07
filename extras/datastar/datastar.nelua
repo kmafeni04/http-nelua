@@ -177,6 +177,27 @@ function datastar.ServerSentEventGenerator:patch_elements(
   return send(self, EventType.PatchElements, data, send_opts)
 end
 
+function datastar.ServerSentEventGenerator:remove_elements(
+  selector: string,
+  opts: facultative(record{
+    use_view_transition: boolean,
+    event_id: string,
+    retry_duration: uinteger
+  })
+): string
+  local patch_el_opts: PatchElementsOpts = {
+    selector = selector,
+    mode = datastar.ElementPatchMode.Remove
+  }
+  ## if not opts.type.is_niltype then
+    patch_el_opts.event_id = opts.event_id
+    patch_el_opts.retry_duration = opts.retry_duration
+    patch_el_opts.use_view_transition = opts.use_view_transition
+  ## end
+
+  return self:patch_elements("", patch_el_opts)
+end
+
 function datastar.ServerSentEventGenerator:patch_signals(
   signals: string,
   opts: facultative(record{
