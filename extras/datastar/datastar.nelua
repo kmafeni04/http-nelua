@@ -170,8 +170,8 @@ function datastar.ServerSentEventGenerator:patch_elements(
   ## else
     local send_opts = nil
   ## end
-  for line in string.gmatch(elements .. "\n", "([^\r\n]+)\r?\n") do
-    data:push(("elements %s"):format(line))
+  for _, line in string.gmatch(elements .. "\n", "([^\r\n]+)\r?\n") do
+    data:push(("elements %s"):format(line[0]))
   end
 
   return send(self, EventType.PatchElements, data, send_opts)
