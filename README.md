@@ -241,12 +241,6 @@ end)
 function http.Response:set_cookie(c: http.Cookie):  string
 ```
 
-#### http.ActionFn
-
-```lua
-local http.ActionFn = @function(self: *http.Server): http.Response
-```
-
 #### http.Session
 
 ```lua
@@ -346,10 +340,18 @@ local http.Config = @record{
 
 #### http.BeforeFn
 
-Type Alias describing the function signatyre of before functions called in the [before_filter](#httpserverbefore_filter)
+Type Alias describing the function signature of before functions called in the [http.Server:before_filter](#httpserverbefore_filter)
 
 ```lua
 local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
+```
+
+#### http.ActionFn
+
+Type Alias describing the function signature of action functions called on a [http.Server:#|method|#](#httpservermethod)
+
+```lua
+local http.ActionFn = @function(self: *http.Server): http.Response
 ```
 
 #### http.Server

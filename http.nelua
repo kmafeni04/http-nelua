@@ -415,15 +415,6 @@ end
 
 local http.Server <forwarddecl> = @record{}
 
---- #### http.ActionFn
----`
-local http.ActionFn = @function(self: *http.Server): http.Response
----`
-
-local Route = @record{
-  methods: hashmap(string, http.ActionFn)
-}
-
 --- #### http.Session
 ---`
 local http.Session = @record{
@@ -545,10 +536,20 @@ local http.Config = @record{
 ---`
 
 --- #### http.BeforeFn
---- Type Alias describing the function signatyre of before functions called in the [before_filter](#httpserverbefore_filter)
+--- Type Alias describing the function signature of before functions called in the [http.Server:before_filter](#httpserverbefore_filter)
 ---`
 local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
 ---`
+
+--- #### http.ActionFn
+--- Type Alias describing the function signature of action functions called on a [http.Server:#|method|#](#httpservermethod)
+---`
+local http.ActionFn = @function(self: *http.Server): http.Response
+---`
+
+local Route = @record{
+  methods: hashmap(string, http.ActionFn)
+}
 
 --- #### http.Server
 ---`
