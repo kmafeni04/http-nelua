@@ -209,7 +209,7 @@ app:get(nil, "/", function(self: *http.Server)
   local resp = self:text(200, "ok")
   local err = resp:set_header("name", "james")
   if err ~= "" then
-    return self:error(err)
+    return self:error()
   end
   return resp
 end)
@@ -231,7 +231,7 @@ app:get(nil, "/", function(self: *http.Server)
     val = "james"
   })
   if err ~= "" then
-    return self:error(err)
+    return self:error()
   end
   return resp
 end)
@@ -626,10 +626,10 @@ function http.Server:redirect(path: string): http.Response
 
 #### http.Server:error
 
-helper function that returns a http text response with a 500 error code and your `msg`
+Helper function that returns a http text response with a 500 error code and message "Internal Server Error"
 
 ```lua
-function http.Server:error(msg: string): http.Response
+function http.Server:error(): http.Response
 ```
 
 #### http.csrf
