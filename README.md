@@ -284,12 +284,6 @@ app:get(nil, "/test", function(self: *http.Server)
 end)
 ```
 
-#### http.BeforeFn
-
-```lua
-local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
-```
-
 #### http.Request
 
 ```lua
@@ -348,6 +342,14 @@ local http.Config = @record{
   session_name: string,
   log: http.TriBool
 }
+```
+
+#### http.BeforeFn
+
+Type Alias describing the function signatyre of before functions called in the [before_filter](#httpserverbefore_filter)
+
+```lua
+local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
 ```
 
 #### http.Server

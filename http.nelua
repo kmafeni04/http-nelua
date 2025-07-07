@@ -472,11 +472,6 @@ function http.Session:get_val(name: string): string
   return self.vals[name]
 end
 
---- #### http.BeforeFn
----`
-local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
----`
-
 --- #### http.Request
 ---`
 local http.Request = @record{
@@ -547,6 +542,12 @@ local http.Config = @record{
   session_name: string,
   log: http.TriBool
 }
+---`
+
+--- #### http.BeforeFn
+--- Type Alias describing the function signatyre of before functions called in the [before_filter](#httpserverbefore_filter)
+---`
+local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
 ---`
 
 --- #### http.Server
