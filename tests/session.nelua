@@ -1,8 +1,8 @@
 local http = require "..http"
 
 do
-  local app = http.new({
-    log = http.NotSetOrBool.FALSE
+  local app = http.Server.new({
+    log = http.TriBool.FALSE
   })
   app:get(nil, "/", function(self: *http.Server)
     self.session:set_val("name", "james")
@@ -21,16 +21,19 @@ do
   end)
 
   
-  local str1 = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  http.handle_request(str1, &app)
+  app:mock_request("/")
 
-  local str2 = "GET /test HTTP/1.1\r\nHost: localhost\r\nCookie: http_session=bmFtZT1qYW1lczsgYWdlPTEwOw==///MTc3NjgxN2EyMzU2OGM5NGIyMjJjODkyNzllNTczNjIxNTkyMGM3N2Y3YjM0ZjY5NDBmNzk1MWJlZDY4YjYwNw==\r\n\r\n"
-  http.handle_request(str2, &app)
+  app:mock_request("/test", {
+    session_vals = inline_map!(string, string, {
+      name = "james",
+      age = "10"
+    })
+  })
 end
 
 do
-  local app = http.new({
-    log = http.NotSetOrBool.FALSE
+  local app = http.Server.new({
+    log = http.TriBool.FALSE
   })
 
   app:get(nil, "/test", function(self: *http.Server)
@@ -43,6 +46,5 @@ do
   end)
 
   
-  local str = "GET /test HTTP/1.1\r\nHost: localhost\r\n\r\n"
-  http.handle_request(str, &app)
+  app:mock_request("/")
 end

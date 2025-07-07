@@ -8,10 +8,29 @@ local datastar.ServerSentEventGenerator = @record{
   resp: http.Response
 }
 
+local function send_session(self: *http.Server, resp: *http.Response)
+  if self.session.send then
+    local sb: stringbuilder
+    for k, v in pairs(self.session.vals) do
+      sb:write(("%s=%s; "):format(k, v))
+    end
+    sb:rollback(1)
+    local session_map = http.utils.b64_encode(sb:promote()) 
+    local val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+    resp:set_cookie({
+      name = self.config.session_name,
+      val = val
+    })
+    self.session.send = false
+  end
+end
+
 function datastar.ServerSentEventGenerator.new(server: *http.Server, resp: http.Response): (datastar.ServerSentEventGenerator, string) 
   if server == nilptr then
     return  {}, "Server was a nilptr"
   end
+
+  send_session(server, resp)
 
   resp.status = 200
   resp.content_type = "text/event-stream"
@@ -28,10 +47,11 @@ function datastar.ServerSentEventGenerator.new(server: *http.Server, resp: http.
     return {}, err
   end
 
-  local err = server:write(resp:tostring())
+  local written, err = server:write(resp:tostring())
   if err ~= "" then
     return {}, err
   end
+  server.written = true
   return { server = server, resp = resp }, ""
 end
 
@@ -78,7 +98,12 @@ local function send(
   sb:write("\n")
 
   local final = sb:promote()
-  return self.server:write(final)
+  local written, err = self.server:write(final)
+  if err ~= "" then
+    return err
+  end
+  self.server.written = written
+  return ""
 end
 
 local datastar.ElementPatchMode = @enum{
