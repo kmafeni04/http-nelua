@@ -82,8 +82,7 @@ local function send(
 end
 
 local datastar.ElementPatchMode = @enum{
-  not_set = 0,
-  Morph,
+  null = -1,
   Inner,
   Outer,
   Replace,
@@ -94,12 +93,12 @@ local datastar.ElementPatchMode = @enum{
   Remove,
 }
 
-local function element_patch_mode_text(fmm: datastar.ElementPatchMode): string
-  switch fmm do
-    case datastar.ElementPatchMode.Outer then
-      return "outer"
+local function element_patch_mode_text(epm: datastar.ElementPatchMode): string
+  switch epm do
     case datastar.ElementPatchMode.Inner then
       return "inner"
+    case datastar.ElementPatchMode.Outer then
+      return "outer"
     case datastar.ElementPatchMode.Replace then
       return "replace"
     case datastar.ElementPatchMode.Prepend then
@@ -113,7 +112,7 @@ local function element_patch_mode_text(fmm: datastar.ElementPatchMode): string
     case datastar.ElementPatchMode.Remove then
       return "remove"
   end
-  return "UNKNOWN FragmentMergeMode: " .. fmm
+  return "UNKNOWN FragmentMergeMode: " .. epm
 end
 
 local PatchElementsOpts = @record{
@@ -134,14 +133,14 @@ function datastar.ServerSentEventGenerator:patch_elements(
       event_id = opts.event_id,
       retry_duration = opts.retry_duration,
     }
-    if opts.mode > datastar.ElementPatchMode.not_set then
+    if opts.mode > datastar.ElementPatchMode.null then
       data:push(("mode %s"):format(element_patch_mode_text(opts.mode)))
     end
     if opts.selector ~= "" then
       data:push(("selector %s"):format(opts.selector))
     end
     if opts.use_view_transition then
-      data:push(("useViewTransition true"))
+      data:push("useViewTransition true")
     end
   ## else
     local send_opts = nil
@@ -169,7 +168,7 @@ function datastar.ServerSentEventGenerator:patch_signals(
       retry_duration = opts.retry_duration,
     }
     if opts.only_if_missing then
-      data:push(("onlyIfMissing true"))
+      data:push("onlyIfMissing true")
     end
   ## else
     local send_opts = nil
@@ -191,22 +190,20 @@ function datastar.ServerSentEventGenerator:execute_script(
 ): string
 
   local sb: stringbuilder
-   sb:write("<string")
+  sb:write("<script")
+  local patch_el_opts: PatchElementsOpts = {
+    selector = "body",
+    mode = datastar.ElementPatchMode.Append
+  }
   ## if not opts.type.is_niltype then
-    local patch_el_opts: PatchElementsOpts = {
-      event_id = opts.event_id,
-      retry_duration = opts.retry_duration,
-      selector = "body",
-      mode = datastar.ElementPatchMode.Append
-    }
+    patch_el_opts.event_id = opts.event_id
+    patch_el_opts.retry_duration = opts.retry_duration
     for _, v in ipairs(opts.attributes) do
       sb:writef(" %s", v)
     end
     if opts.auto_remove then
-      sb:write(' data-on-load="el.remove()"')
+      sb:write(' data-effect="el.remove()"')
     end
-  ## else
-    local patch_el_opts = nil
   ## end
   sb:writef(">%s</script>", script)
   local elements = sb:promote()
