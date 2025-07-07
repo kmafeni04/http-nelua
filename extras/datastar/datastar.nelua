@@ -137,7 +137,7 @@ local function element_patch_mode_text(epm: datastar.ElementPatchMode): string
     case datastar.ElementPatchMode.Remove then
       return "remove"
   end
-  return "UNKNOWN FragmentMergeMode: " .. epm
+  return "UNKNOWN ElementPatchMode: " .. epm
 end
 
 local PatchElementsOpts = @record{
