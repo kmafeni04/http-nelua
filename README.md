@@ -272,7 +272,7 @@ end)
 function http.Session:set_val(name: string, val: string): string
 ```
 
-#### Session:get_val(name: string): string
+#### http.Session:get_val(name: string): string
 
 This function is used to get values that are stored in the sesssion
 
