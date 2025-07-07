@@ -56,25 +56,16 @@ function datastar.ServerSentEventGenerator.new(server: *http.Server, resp: http.
 end
 
 local EventType = @enum{
-  MergeFragments = 0,
-  MergeSignals,
-  RemoveFragments,
-  RemoveSignals,
-  ExecuteScript,
+  PatchElements = 0,
+  PatchSignals,
 }
 
 local function event_type_text(e_type: EventType): string
   switch e_type do
-    case EventType.MergeFragments then
-      return "datastar-merge-fragments"
-    case EventType.MergeSignals then
-      return "datastar-merge-signals"
-    case EventType.RemoveFragments then
-      return "datastar-remove-fragments"
-    case EventType.RemoveSignals then
-      return "datastar-remove-signals"
-    case EventType.ExecuteScript then
-      return "datastar-execute-script"
+    case EventType.PatchElements then
+      return "datastar-patch-elements"
+    case EventType.PatchSignals then
+      return "datastar-patch-signals"
   end
   return "UNKNOWN EventType: " .. e_type
 end
@@ -115,49 +106,51 @@ local function send(
   return ""
 end
 
-local datastar.FragmentMergeMode = @enum{
-  not_set = 0,
-  Morph,
+local datastar.ElementPatchMode = @enum{
+  null = -1,
   Inner,
   Outer,
+  Replace,
   Prepend,
   Append,
   Before,
   After,
-  UpsertAttributes,
+  Remove,
 }
 
-local function fragment_merge_mode_text(fmm: datastar.FragmentMergeMode): string
-  switch fmm do
-    case datastar.FragmentMergeMode.Morph then
-      return "morph"
-    case datastar.FragmentMergeMode.Inner then
+local function element_patch_mode_text(epm: datastar.ElementPatchMode): string
+  switch epm do
+    case datastar.ElementPatchMode.Inner then
       return "inner"
-    case datastar.FragmentMergeMode.Outer then
+    case datastar.ElementPatchMode.Outer then
       return "outer"
-    case datastar.FragmentMergeMode.Prepend then
+    case datastar.ElementPatchMode.Replace then
+      return "replace"
+    case datastar.ElementPatchMode.Prepend then
       return "prepend"
-    case datastar.FragmentMergeMode.Append then
+    case datastar.ElementPatchMode.Append then
       return "append"
-    case datastar.FragmentMergeMode.Before then
+    case datastar.ElementPatchMode.Before then
       return "before"
-    case datastar.FragmentMergeMode.After then
+    case datastar.ElementPatchMode.After then
       return "after"
-    case datastar.FragmentMergeMode.UpsertAttributes then
-      return "upsertAttributes"
+    case datastar.ElementPatchMode.Remove then
+      return "remove"
   end
-  return "UNKNOWN FragmentMergeMode: " .. fmm
+  return "UNKNOWN FragmentMergeMode: " .. epm
 end
 
-function datastar.ServerSentEventGenerator:merge_fragments(
-  fragments: string,
-  opts: facultative(record{
-    selector: string,
-    merge_mode: datastar.FragmentMergeMode,
-    use_view_transition: boolean,
-    event_id: string,
-    retry_duration: uinteger
-  })
+local PatchElementsOpts = @record{
+  selector: string,
+  mode: datastar.ElementPatchMode,
+  use_view_transition: boolean,
+  event_id: string,
+  retry_duration: uinteger
+}
+
+function datastar.ServerSentEventGenerator:patch_elements(
+  elements: string,
+  opts: facultative(PatchElementsOpts)
 ): string
   local data: sequence(string)
   ## if not opts.type.is_niltype then
@@ -165,53 +158,26 @@ function datastar.ServerSentEventGenerator:merge_fragments(
       event_id = opts.event_id,
       retry_duration = opts.retry_duration,
     }
+    if opts.mode > datastar.ElementPatchMode.null then
+      data:push(("mode %s"):format(element_patch_mode_text(opts.mode)))
+    end
     if opts.selector ~= "" then
       data:push(("selector %s"):format(opts.selector))
     end
-    if opts.merge_mode > datastar.FragmentMergeMode.not_set then
-      data:push(("mergeMode %s"):format(fragment_merge_mode_text(opts.merge_mode)))
-    end
     if opts.use_view_transition then
-      data:push(("useViewTransition true"))
+      data:push("useViewTransition true")
     end
   ## else
     local send_opts = nil
   ## end
-  for _, line in string.gmatch(fragments .. "\n", "([^\r\n]+)\r?\n") do
-    data:push(("fragments %s"):format(line[0]))
+  for line in string.gmatch(elements .. "\n", "([^\r\n]+)\r?\n") do
+    data:push(("elements %s"):format(line))
   end
 
-  return send(self, EventType.MergeFragments, data, send_opts)
+  return send(self, EventType.PatchElements, data, send_opts)
 end
 
-function datastar.ServerSentEventGenerator:remove_fragments(
-  selector: string,
-  opts: facultative(record{
-    use_view_transition: boolean,
-    event_id: string,
-    retry_duration: uinteger
-  })
-): string
-  local data: sequence(string)
-
-  data:push(("selector %s"):format(selector))
-
-  ## if not opts.type.is_niltype then
-    local send_opts: SendOpts = {
-      event_id = opts.event_id,
-      retry_duration = opts.retry_duration,
-    }
-    if opts.use_view_transition then
-      data:push(("useViewTransition true"))
-    end
-  ## else
-    local send_opts = nil
-  ## end
-
-  return send(self, EventType.RemoveFragments, data, send_opts)
-end
-
-function datastar.ServerSentEventGenerator:merge_signals(
+function datastar.ServerSentEventGenerator:patch_signals(
   signals: string,
   opts: facultative(record{
     only_if_missing: boolean,
@@ -227,7 +193,7 @@ function datastar.ServerSentEventGenerator:merge_signals(
       retry_duration = opts.retry_duration,
     }
     if opts.only_if_missing then
-      data:push(("onlyIfMissing true"))
+      data:push("onlyIfMissing true")
     end
   ## else
     local send_opts = nil
@@ -235,67 +201,42 @@ function datastar.ServerSentEventGenerator:merge_signals(
 
   data:push(("signals %s"):format(signals))
 
-  return send(self, EventType.MergeSignals, data, send_opts)
-end
-
-function datastar.ServerSentEventGenerator:remove_signals(
-  paths: sequence(string),
-  opts: facultative(record{
-    event_id: string,
-    retry_duration: uinteger
-  })
-): string
-  local data: sequence(string)
-
-  ## if not opts.type.is_niltype then
-    local send_opts: SendOpts = {
-      event_id = opts.event_id,
-      retry_duration = opts.retry_duration,
-    }
-  ## else
-    local send_opts = nil
-  ## end
-
-  for _, v in ipairs(paths) do
-    data:push(("paths %s"):format(v))
-  end
-
-  return send(self, EventType.RemoveSignals, data, send_opts)
+  return send(self, EventType.PatchSignals, data, send_opts)
 end
 
 function datastar.ServerSentEventGenerator:execute_script(
   script: string,
   opts: facultative(record{
-    auto_remove: *boolean,
+    auto_remove: boolean,
     attributes: sequence(string),
     event_id: string,
     retry_duration: uinteger
   })
 ): string
-  local data: sequence(string)
 
+  local sb: stringbuilder
+  sb:write("<script")
+  local patch_el_opts: PatchElementsOpts = {
+    selector = "body",
+    mode = datastar.ElementPatchMode.Append
+  }
   ## if not opts.type.is_niltype then
-    local send_opts: SendOpts = {
-      event_id = opts.event_id,
-      retry_duration = opts.retry_duration,
-    }
-    if opts.auto_remove ~= nilptr and $opts.auto_remove == false then
-      data:push("autoRemove false")
-    end
+    patch_el_opts.event_id = opts.event_id
+    patch_el_opts.retry_duration = opts.retry_duration
     for _, v in ipairs(opts.attributes) do
-      data:push(("attributes %s"):format(v))
+      sb:writef(" %s", v)
     end
-  ## else
-    local send_opts = nil
+    if opts.auto_remove then
+      sb:write(' data-effect="el.remove()"')
+    end
   ## end
-
-  data:push(("script %s"):format(script))
-
-  return send(self, EventType.ExecuteScript, data, send_opts)
+  sb:writef(">%s</script>", script)
+  local elements = sb:promote()
+  return self:patch_elements(elements, patch_el_opts)
 end
 
 function datastar.ServerSentEventGenerator:redirect(path: string)
-  self:execute_script(('setTimeout(() => window.location = "%s")'):format(path))
+  self:execute_script(('setTimeout(() => window.location = "%s")'):format(path), { auto_remove = true })
 end
 
 function datastar.read_signals(server: *http.Server): (json.JsonNode, string)

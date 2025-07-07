@@ -10,7 +10,7 @@ app:get("index", "/", function(self: *http.Server)
 <head>
   <meta charset="UTF-8">
   <title>HTML Page</title>
-  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@release-candidate/bundles/datastar.js"></script>
 </head>
 <body>
   <button data-on-click="@get('/stream')">get</button>
@@ -24,14 +24,16 @@ app:get("stream", "/stream", function(self: *http.Server): http.Response
   local err_resp: http.Response = { status = 500 }
   local sseg, err = datastar.ServerSentEventGenerator.new(self)
   if err ~= "" then return err_resp end
-  local err = sseg:merge_fragments(('<div id="hello">Open your console</div>'), { retry_duration = 4000 })
+
+  local err = sseg:patch_elements('<div id="hello">Open your console</div>', { retry_duration = 4000 })
   if err ~= "" then return err_resp end
-  local err = sseg:merge_signals('{foo: 1}')
+  
+  local err = sseg:patch_signals('{foo: 1}')
   if err ~= "" then return err_resp end
-  local auto_remove = false
-  sseg:execute_script("console.log('Going to home')")
+  
+  sseg:execute_script("console.log('Going to home')", { auto_remove = true })
   for i = 10, 1, -1 do
-    sseg:execute_script(("console.log('Going in %d')"):format(i))
+    sseg:execute_script(("console.log('Going in %d')"):format(i), { auto_remove = true })
     os.sleep(1)
   end
   sseg:redirect("/home")
@@ -43,7 +45,7 @@ app:post("stream-post", "/stream-post", function(self: *http.Server): http.Respo
   local sseg, err = datastar.ServerSentEventGenerator.new(self)
   if err ~= "" then return err_resp end
   for i = 10, 1, -1 do
-    local err = sseg:merge_fragments(('<div id="hello">Going to /home in %d</div>'):format(i))
+    local err = sseg:patch_elements(('<div id="hello">Going to /home in %d</div>'):format(i))
     if err ~= "" then break end
     os.sleep(1)
   end
@@ -58,7 +60,7 @@ app:get("home", "/home", function(self: *http.Server)
 <head>
   <meta charset="UTF-8">
   <title>HTML Page</title>
-  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@release-candidate/bundles/datastar.js"></script>
 </head>
 <body data-on-load="@get('/home-stream')">
   <h1 id="hello"></h1>
@@ -71,10 +73,10 @@ app:get("home-stream", "/home-stream", function(self: *http.Server)
   local err_resp: http.Response = { status = 500 }
   local sseg, err = datastar.ServerSentEventGenerator.new(self)
   if err ~= "" then return err_resp end
-  local err = sseg:merge_fragments('<h1 id="hello">Going back to / </h1>')
+  local err = sseg:patch_elements('<h1 id="hello">Going back to / </h1>')
   if err ~= "" then return err_resp end
   for i = 10, 1, -1 do
-    local err = sseg:merge_fragments(('<h2 id="hello2">Going in %d</h2>'):format(i))
+    local err = sseg:patch_elements(('<h2 id="hello2">Going in %d</h2>'):format(i))
     if err ~= "" then break end
     os.sleep(1)
   end
