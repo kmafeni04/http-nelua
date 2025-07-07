@@ -192,7 +192,7 @@ This function converts your response into a http request string
 ```lua
 app:get(nil, "/test", function(self: *http.Server)
   local resp = self:text(200, "ok")
-  print(resp:tostring) -- "HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  print(resp:tostring()) -- "HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
   return resp
 end)
 ```
