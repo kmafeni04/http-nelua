@@ -16,7 +16,15 @@ subs["lang"] = gen.conf.lang
 gen:add([=[
 # http.nelua
 
-A sufficiently featured webserver for nelua
+A HTTP 1.1 webserver library for nelua
+
+## Features
+- Routing
+- Sessions
+- CSRF security
+- External http requests
+- Builtin JSON library
+
 
 ## Requirements
 - nelua
@@ -44,7 +52,6 @@ app:serve()
 ]=], {subs = subs})
 
 gen:add_file("./http.nelua", { subs = subs })
-
 gen:add_file("./thirdparty/json.nelua", { subs = subs })
 gen:add_file("./libs/send_request.nelua", { subs = subs })
 gen:add_file("./libs/utils.nelua", { subs = subs })

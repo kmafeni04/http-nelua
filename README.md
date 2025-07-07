@@ -1,6 +1,14 @@
 # http.nelua
 
-A sufficiently featured webserver for nelua
+A HTTP 1.1 webserver library for nelua
+
+## Features
+- Routing
+- Sessions
+- CSRF security
+- External http requests
+- Builtin JSON library
+
 
 ## Requirements
 - nelua
