@@ -294,6 +294,7 @@ end
 --- #### send_request
 --[[-
 This function takes a [SendRequest](#sendrequest) object, makes either an http or https request and returns a [SendResponse](#sendresponse) object
+If no method is passed, it defaults to "get"
 Keep note that this function will block whatever route you call it on until the request is completed
 
 ```:lang:
@@ -304,8 +305,8 @@ local result, err = send_request({
 ```
 -]]
 local function send_request(req: SendRequest): (SendResponse, string)
-  assert(req.url ~= "")
-  assert(req.method ~= "")
+  assert(req.url ~= "", "URL field cannot be an empty string")
+  req.method = req.method ~= "" and req.method or "get"
   local send_addr, err = parse_url(req.url)
   if err ~= "" then
     return {}, err
