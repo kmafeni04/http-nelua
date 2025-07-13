@@ -1133,6 +1133,7 @@ local SendResponse = @record{
 #### send_request
 
 This function takes a [SendRequest](#sendrequest) object, makes either an http or https request and returns a [SendResponse](#sendresponse) object
+If no method is passed, it defaults to "get"
 Keep note that this function will block whatever route you call it on until the request is completed
 
 ```lua

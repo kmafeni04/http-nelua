@@ -43,6 +43,7 @@ local function ERR_print_errors_fp(fp: *C.FILE) <cimport, nodecl> end
 
 local SendAddress = @record{
   host: string,
+  port: integer,
   path: string,
   ssl: boolean
 }
@@ -55,10 +56,24 @@ local function parse_url(url: string): (SendAddress, string)
     local matched, matched_seq = url:match("^https://([^/]+)/?$")
     local matched_path, matched_path_seq = url:match("^https://?([^/]+)(/?.*)$")
     if matched then
-      send_addr.host = matched_seq[1]
+      local port_match, port_seq = matched_seq[1]:match("(.+):(%d+)")
+      if port_match then
+        send_addr.host = port_seq[1]
+        send_addr.port = tointeger(port_seq[2])
+      else
+        send_addr.host = matched_seq[1]
+        send_addr.port = 443
+      end
       send_addr.path = "/"
     elseif matched_path then
-      send_addr.host = matched_path_seq[1]
+      local port_match, port_seq = matched_path_seq[1]:match("(.+):(%d+)")
+      if port_match then
+        send_addr.host = port_seq[1]
+        send_addr.port = tointeger(port_seq[2])
+      else
+        send_addr.host = matched_path_seq[1]
+        send_addr.port = 443
+      end
       send_addr.path = matched_path_seq[2]
     else
       return {}, "Failed to parse host and path"
@@ -67,10 +82,24 @@ local function parse_url(url: string): (SendAddress, string)
     local matched, matched_seq = url:match("^http://([^/]+)/?$")
     local matched_path, matched_path_seq = url:match("^http://?([^/]+)(/?.*)$")
     if matched then
-      send_addr.host = matched_seq[1]
+      local port_match, port_seq = matched_seq[1]:match("(.+):(%d+)")
+      if port_match then
+        send_addr.host = port_seq[1]
+        send_addr.port = tointeger(port_seq[2])
+      else
+        send_addr.host = matched_seq[1]
+        send_addr.port = 80
+      end
       send_addr.path = "/"
     elseif matched_path then
-      send_addr.host = matched_path_seq[1]
+      local port_match, port_seq = matched_path_seq[1]:match("(.+):(%d+)")
+      if port_match then
+        send_addr.host = port_seq[1]
+        send_addr.port = tointeger(port_seq[2])
+      else
+        send_addr.host = matched_path_seq[1]
+        send_addr.port = 80
+      end
       send_addr.path = matched_path_seq[2]
     else
       return {}, "Failed to parse host and path"
@@ -121,7 +150,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
   local sock = socket(AF_INET, SOCK_STREAM, 0)
   local addr: sockaddr_in
   addr.sin_family = AF_INET
-  addr.sin_port = htons(443)
+  addr.sin_port = htons(send_addr.port)
   addr.sin_addr = $(@*in_addr)((@*[0]cstring)(server.h_addr_list)[0])
 
   if connect(sock, (@*sockaddr)(&addr), #sockaddr_in) < 0 then
@@ -220,7 +249,7 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
   defer close(sock) end
   local addr: sockaddr_in
   addr.sin_family = AF_INET
-  addr.sin_port = htons(80)
+  addr.sin_port = htons(send_addr.port)
   addr.sin_addr = $(@*in_addr)((@*[0]cstring)(server.h_addr_list)[0])
 
   if connect(sock, (@*sockaddr)(&addr), #sockaddr_in) < 0 then
@@ -241,7 +270,9 @@ local function send_http(req: SendRequest, send_addr: SendAddress): (SendRespons
     req.method:upper(), send_addr.path, send_addr.host, header_sb:promote(), body_sb:promote()
   )
   local request: cstring = str
-  send(sock, request, #request, 0)
+  if send(sock, request, #request, 0) < 0 then
+    return  {}, "send error"
+  end
 
   local buffer: [BUFFER_SIZE]cchar
   local sb: stringbuilder
