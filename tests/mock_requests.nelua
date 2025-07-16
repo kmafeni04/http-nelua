@@ -19,11 +19,13 @@ end)
 app:post(nil, "/", function(self: *http.Server)
   local username = self.req.params["username"]
   if username == "" then
-    return self:error("username was an empty string")
+    print("username was an empty string")
+    return self:error()
   end
   local age = self.req.params["age"]
   if age == "" then
-    return self:error("age was an empty string")
+    print("age was an empty string")
+    return self:error()
   end
   return self:text(http.Status.OK, ("%s %s"):format(username, age))
 end)
@@ -32,11 +34,13 @@ app:get(nil, "/test", function(self: *http.Server)
 
   local name = self.req.params["name"]
   if name == "" then
-    return self:error("name was an empty string")
+    print("name was an empty string")
+    return self:error()
   end
   local lang = self.req.params["lang"]
   if lang == "" then
-    return self:error("lang was an empty string")
+    print("lang was an empty string")
+    return self:error()
   end
   return self:text(http.Status.OK, ("%s %s"):format(name, lang))
 end)
@@ -45,11 +49,13 @@ app:get(nil, "/test/:id/:name", function(self: *http.Server)
 
   local id = self.req.params["id"]
   if id == "" then
-    return self:error("id was an empty string")
+    print("id was an empty string")
+    return self:error()
   end
   local name = self.req.params["name"]
   if name == "" then
-    return self:error("name was an empty string")
+    print("name was an empty string")
+    return self:error()
   end
   return self:text(http.Status.OK, ("%s %s"):format(id, name))
 end)
@@ -57,7 +63,8 @@ end)
 app:get(nil, "/session_value", function(self: *http.Server)
   local name = self.session:get_val("name")
   if name == "" then
-    return self:error("name was an empty string")
+    print("name was an empty string")
+    return self:error()
   end
   return self:text(http.Status.OK, name)
 end)
@@ -65,17 +72,20 @@ end)
 app:post(nil, "/all", function(self: *http.Server)
   local name = self.req:get_cookie("name")
   if name == "" then
-    return self:error("name was an empty string")
+    print("name was an empty string")
+    return self:error()
   end
 
   local id = self.req.params["id"]
   if id == "" then
-    return self:error("id was an empty string")
+    print("id was an empty string")
+    return self:error()
   end
 
   local age = self.session:get_val("age")
   if age == "" then
-    return self:error("age was an empty string")
+    print("age was an empty string")
+    return self:error()
   end
   return self:text(http.Status.OK, ("%s %s %s"):format(id, name, age))
 end)

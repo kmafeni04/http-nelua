@@ -1,45 +1,10 @@
 --- ### send_request.nelua
 
-## cinclude "<openssl/err.h>"
-## cinclude "<openssl/ssl.h>"
-## linklib "ssl"
-## linklib "crypto"
-
 require "C.stdio"
 
 require "..thirdparty.socket"
 require "..thirdparty.unistd"
-
-local SSL_METHOD <cimport, nodecl> = @record{}
-local SSL_CTX <cimport, nodecl> = @record{}
-local SSL <cimport, nodecl> = @record{}
-
-local function OPENSSL_init_ssl(opts: uinteger, settings: *void): cint <cimport, nodecl> end
-local function SSL_library_init()
-  OPENSSL_init_ssl(0, nilptr)
-end
-local function SSL_load_error_strings()
-  OPENSSL_init_ssl(0x00200000 | 0x00000002, nilptr)
-end
-local function OpenSSL_add_all_algorithms()
-  OPENSSL_init_ssl(0x00000004 | 0x00000008, nilptr)
-end
-local function SSL_CTX_new(meth: *SSL_METHOD): *SSL_CTX <cimport, nodecl> end
-local function TLS_client_method(): *SSL_METHOD <cimport, nodecl> end
-local function gethostbyname(__name: cstring): *hostent <cimport, nodecl> end
-local function SSL_new(ctx: *SSL_CTX): *SSL <cimport, nodecl> end
-local function SSL_connect(ssl: *SSL): cint <cimport, nodecl> end
-local function SSL_set_fd(s: *SSL, fd: cint): cint <cimport, nodecl> end
-local function SSL_write(ssl: *SSL, buf: *void, num: cint): cint <cimport, nodecl> end
-local function SSL_read(ssl: *SSL, buf: *void, num: cint): cint <cimport, nodecl> end
-local function SSL_shutdown(ssl: *SSL): cint <cimport, nodecl> end
-local function SSL_free(ssl: *SSL) <cimport, nodecl> end
-local function SSL_CTX_free(ctx: *SSL_CTX) <cimport, nodecl> end
-local function SSL_ctrl(ssl: *SSL, cmd: cint, larg: clong, parg: *void): clong <cimport, nodecl> end
-local function SSL_set_tlsext_host_name(ssl: *SSL, host: cstring): clong
-  return SSL_ctrl(ssl, 55, 0, (@*void)(host))
-end
-local function ERR_print_errors_fp(fp: *C.FILE) <cimport, nodecl> end
+require "..thirdparty.openssl"
 
 local SendAddress = @record{
   host: string,
@@ -154,6 +119,7 @@ local function send_https(req: SendRequest, send_addr: SendAddress): (SendRespon
   addr.sin_addr = $(@*in_addr)((@*[0]cstring)(server.h_addr_list)[0])
 
   if connect(sock, (@*sockaddr)(&addr), #sockaddr_in) < 0 then
+    close(sock)
     return {}, "connect error"
   end
 
