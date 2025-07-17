@@ -15,7 +15,7 @@ require ".thirdparty.poll"
 require ".thirdparty.inline_map"
 
 local AnsiColor = require ".thirdparty.ansicolor"
-local json = require ".thirdparty.json"
+local json = require "json"
 
 local Crypt = require ".libs.cryptography"
 local send_request = require ".libs.send_request"
@@ -28,7 +28,7 @@ local http = @record{}
 ---`
 
 --- #### http.json
---- See [json.nelua](#jsonnelua)
+--- See [json-nelua](https://github.com/kmafeni04/json-nelua)
 ---`
 local http.json = json
 ---`

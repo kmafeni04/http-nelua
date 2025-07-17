@@ -52,7 +52,6 @@ app:serve()
 ]=], {subs = subs})
 
 gen:add_file("./http.nelua", { subs = subs })
-gen:add_file("./thirdparty/json.nelua", { subs = subs })
 gen:add_file("./libs/send_request.nelua", { subs = subs })
 gen:add_file("./libs/utils.nelua", { subs = subs })
 
