@@ -11,16 +11,28 @@ A HTTP 1.1 webserver library for nelua
 
 
 ## Requirements
-- nelua
+- [nelua](https://nelua.io/)
+- [nlpm](https://github.com/kmafeni04/nlpm)
 - openssl
 - glibc poll
 - glibc unistd
 - glibc socket
 
+## How to install
+Add to your nlpm package dependencies
+```lua
+{
+  name = "http-nelua",
+  repo = "https://github.com/kmafeni04/http-nelua",
+  version = "COMMIT-HASH-OR-TAG",
+},
+```
+Run `nlpm install`
+
 ## Quick start
 
 ```lua
-local http = require "path.to.http"
+local http = require "http"
 
 local app = http.Server.new()
 
