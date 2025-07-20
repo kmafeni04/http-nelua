@@ -13,7 +13,7 @@ return {
     {
       name = "json-nelua",
       repo = "https://github.com/kmafeni04/json-nelua",
-      version = "#bb1a6f8d6639f22faceab1018efcf2bbd0a748cd",
+      version = "#43617c9380f4d86a5f593af34cc0ad0152a95a42",
     },
     {
       name = "ssdg",
