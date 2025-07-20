@@ -24,7 +24,7 @@ do
   app:mock_request("/")
 
   app:mock_request("/test", {
-    session_vals = inline_map!(string, string, {
+    session_vals = map!(string, string, {
       name = "james",
       age = "10"
     })

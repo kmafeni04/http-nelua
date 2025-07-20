@@ -4,7 +4,7 @@ require "C.stdio"
 
 require "..thirdparty.socket"
 require "..thirdparty.unistd"
-require "..thirdparty.openssl"
+require "openssl"
 
 local SendAddress = @record{
   host: string,

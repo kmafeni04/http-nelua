@@ -96,7 +96,7 @@ assert(resp.status == 200)
 
 local resp, req_str = app:mock_request("/", {
   method = "POST",
-  params = inline_map!(string, string, {
+  params = map!(string, string, {
     username = "James",
     age = "21"
   })
@@ -106,7 +106,7 @@ assert(resp.body == "James 21")
 
 local resp, req_str = app:mock_request("/test", {
   method = "GET",
-  params = inline_map!(string, string, {
+  params = map!(string, string, {
     name = "James",
     lang = "English"
   })
@@ -120,7 +120,7 @@ assert(resp.body == "1 James")
 
 local resp, req_str = app:mock_request("/session_value", {
   method = "GET",
-  session_vals = inline_map!(string, string, {
+  session_vals = map!(string, string, {
     name = "James"
   })
 })
@@ -129,13 +129,13 @@ assert(resp.body == "James")
 
 local resp, req_str = app:mock_request("/all", {
   method = "POST",
-  params = inline_map!(string, string, {
+  params = map!(string, string, {
     id = "1"
   }),
-  cookies = inline_map!(string, string, {
+  cookies = map!(string, string, {
     name = "James"
   }),
-  session_vals = inline_map!(string, string, {
+  session_vals = map!(string, string, {
     age = "21"
   })
 })

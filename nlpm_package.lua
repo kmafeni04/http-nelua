@@ -20,9 +20,24 @@ return {
       repo = "https://github.com/kmafeni04/ssdg",
       version = "#9e1fb58f183ae7efea98d25a40d6d1bf38f483af",
     },
+    {
+      name = "openssl-bindings-nelua",
+      repo = "https://github.com/kmafeni04/openssl-bindings-nelua",
+      version = "#6dc1704ab9b4c843a530059886d177aca4de8211",
+    },
+    {
+      name = "ansicolor-nelua",
+      repo = "https://github.com/kmafeni04/ansicolor-nelua",
+      version = "#0b5f769242a441bdb4d293957be240e6fb694428",
+    },
+    {
+      name = "map-nelua",
+      repo = "https://github.com/kmafeni04/map-nelua",
+      version = "#4572efa8784fcce5763073007852573fb578fbdd",
+    },
   },
   scripts = {
     test = "nelua test.nelua",
-    doc_gen = "nelua http-doc.nelua",
+    docs = "nelua http-doc.nelua",
   },
 }

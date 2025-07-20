@@ -393,7 +393,7 @@ http.Server = @record{
 These are the mime types that will be matched against when a static file is requested from the server alongside their respective content type
 
 ```lua
-local mime_types = inline_map!(string, string, {
+local mime_types = map!(string, string, {
   ["aac"] = "audio/aac",
   ["abw"] = "application/x-abiword",
   ["apng"] = "image/apng",

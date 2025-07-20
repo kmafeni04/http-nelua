@@ -8,7 +8,7 @@ require "os"
 require "..thirdparty.socket"
 require "..thirdparty.unistd"
 require "..thirdparty.poll"
-require "..thirdparty.openssl"
+require "openssl"
 
 local utils = require ".utils"
 
