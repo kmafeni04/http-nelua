@@ -6,9 +6,9 @@ local app = http.Server.new({
   log = http.TriBool.FALSE
 })
 
-app.write = function(self: *http.Server, s: string): (boolean, string)
+app.write = function(self: *http.Server, s: string): string
   write_sb:write(s)
-  return true, ""
+  return ""
 end
 
 -- Route definitions

@@ -382,7 +382,7 @@ http.Server = @record{
   handle_404: http.ActionFn,
   session: http.Session,
   before_funcs: sequence(http.BeforeFn),
-  write: function(self: *http.Server, s: string): (boolean, string),
+  write: function(self: *http.Server, s: string): string,
   written: boolean,
   _fd: integer
 }
@@ -735,13 +735,13 @@ To write to the client, the `write` method is called
 Below is the default implementation
 
 ```lua
-  s.write = function(self:*http.Server, s: string): (boolean, string)
+  s.write = function(self:*http.Server, s: string): string
     local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
     if written_bytes == -1 then
       local err_msg = C.strerror(C.errno)
-      return false, (@string)(err_msg)
+      return (@string)(err_msg)
     end
-    return true, ""
+    return ""
   end
 ```
 

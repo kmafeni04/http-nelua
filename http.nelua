@@ -566,7 +566,7 @@ http.Server = @record{
   handle_404: http.ActionFn,
   session: http.Session,
   before_funcs: sequence(http.BeforeFn),
-  write: function(self: *http.Server, s: string): (boolean, string),
+  write: function(self: *http.Server, s: string): string,
   written: boolean,
   _fd: integer
 }
@@ -1261,7 +1261,8 @@ function http.Server:serve()
           local resp = handle_request(str, self)
 
           if not self.written then
-            self.written = self:write(resp:tostring())
+            local err = self:write(resp:tostring())
+            self.written = err == ""
           end
           logger.log(self.config.log, ("[%s] %s %s"):format(
             color_status(resp.status),
@@ -1402,13 +1403,13 @@ To write to the client, the `write` method is called
 Below is the default implementation
 -]]
 ---`
-  s.write = function(self:*http.Server, s: string): (boolean, string)
+  s.write = function(self:*http.Server, s: string): string
     local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
     if written_bytes == -1 then
       local err_msg = C.strerror(C.errno)
-      return false, (@string)(err_msg)
+      return (@string)(err_msg)
     end
-    return true, ""
+    return ""
   end
 ---`
 

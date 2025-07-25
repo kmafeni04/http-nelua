@@ -52,7 +52,7 @@ local total_failed = 0
 local failed_tests: sequence(string)
 
 for _, file in ipairs(files) do
-  local ok = os.execute(("nelua %s"):format(file))
+  local ok = os.execute(("nelua --cc=tcc %s"):format(file))
   if not ok then
     failed_tests:push(file)
     io.stderr:write(("%s Test: %s failed\n"):format(AnsiColor.new("[ERROR]"):Red():tostring(), file))

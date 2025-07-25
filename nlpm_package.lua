@@ -37,7 +37,7 @@ return {
     },
   },
   scripts = {
-    test = "nelua test.nelua",
+    test = "nelua --cc=tcc test.nelua",
     docs = "nelua http-doc.nelua",
   },
 }
