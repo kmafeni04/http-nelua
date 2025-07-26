@@ -17,8 +17,9 @@ require "map"
 local AnsiColor = require "ansicolor"
 local json = require "json"
 
-local Crypt = require ".libs.cryptography"
+local crypt = require ".libs.crypt"
 local send_request = require ".libs.send_request"
+local mail = require ".libs.mail"
 local utils = require ".libs.utils"
 local logger = require ".libs.logger"
 
@@ -36,6 +37,11 @@ local http.json = json
 --- See [send_request.nelua](#send_requestnelua)
 ---`
 local http.send_request = send_request
+---`
+--- #### http.mail
+--- See [mail.nelua](#mailnelua)
+---`
+local http.mail = mail
 ---`
 --- #### http.utils
 --- See [utils.nelua](#utilsnelua)
@@ -924,11 +930,11 @@ function http.csrf.generate_token(self: *http.Server): string
   end
   local TOKEN_LENGTH <comptime> = 32 -- 32 bytes = 256 bits
   local buf: [TOKEN_LENGTH]cchar
-  if Crypt.rand_bytes(&buf, #buf) ~= 1 then
+  if crypt.rand_bytes(&buf, #buf) ~= 1 then
     return ""
   end
 
-  local val = Crypt.get_hex(&buf, #buf)
+  local val = crypt.get_hex(&buf, #buf)
   self.session:set_val("csrf_token", val)
   return val
 end

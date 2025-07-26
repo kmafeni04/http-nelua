@@ -1,0 +1,272 @@
+-- TODO: Add support for attachments
+
+--- ### mail.nelua
+--- Docs in progress
+
+require "C.string"
+require "C.errno"
+require "C.stdio"
+
+require "io"
+require "os"
+
+require "..thirdparty.socket"
+require "..thirdparty.unistd"
+require "..thirdparty.poll"
+require "openssl"
+
+local utils = require ".utils"
+
+## local function mail_assert(ret, err)
+  if #[ret]# ~= "" then
+    return #[err and err or ret]#
+  end
+## end
+
+local function send_data(sock: integer, ssl: *SSL, data: string)
+  if ssl then
+    if SSL_write(ssl, data.data, #data) < 0 then return "SSL_write error" end
+  else
+    if send(sock, data.data, #data, 0) < 0 then return "send error" end
+  end
+  return ""
+end
+
+local function send_command(sock: integer, ssl: *SSL, cmd: string)
+  if #cmd > 2000 then return "`cmd` may not exceed 2kB" end
+  if cmd:match("\r\n") then return "`cmd` may not contain CR or LF line breaks" end
+  cmd = cmd .. "\r\n"
+  return send_data(sock, ssl, cmd)
+end
+
+local function receive_response(sock: integer, ssl: *SSL): string
+  local buffer: [8192]cchar
+  local received: integer
+  if ssl then
+    received = SSL_read(ssl, &buffer, #buffer)
+  else
+    received = recv(sock, &buffer, #buffer, 0)
+  end
+
+  if received < 0 then
+    return "receive error"
+  end
+  return ""
+end
+
+local function extract_address(s: string): string
+  local matched, match_seq = s:match("<%s*(.+@.+)%s*>")
+  if matched then
+    return match_seq[1]
+  end
+  return s
+end
+
+local mail = @record{}
+
+local mail.AuthType = @enum{
+  null = -1,
+  plain,
+  login
+}
+
+local mail.Conf = @record{
+  domain: string,
+  host: string,
+  port: uinteger,
+  auth_type: mail.AuthType,
+  starttls: boolean,
+  username: string,
+  password: string
+}
+
+local mail.Mailer = @record{
+  sock: integer,
+  conf: mail.Conf
+}
+
+function mail.new(conf: mail.Conf): (mail.Mailer, string)
+  conf.domain = conf.domain ~= "" and conf.domain or "localhost.localdomain"
+  conf.host = conf.host ~= "" and conf.host or "localhost"
+  conf.port = conf.port ~= 0 and conf.port or 25
+  
+  local host = gethostbyname(conf.host)
+  if host == "nilptr" then
+    return {}, "gethostbyname error"
+  end
+
+  local sock = socket(AF_INET, SOCK_STREAM, 0)
+  if (sock < 0) then
+    local err_msg = C.strerror(C.errno)
+    return {}, err_msg
+  end
+
+  local server: sockaddr_in
+  server.sin_family = AF_INET
+  server.sin_addr = $(@*in_addr)((@*[0]cstring)(host.h_addr_list)[0])
+  server.sin_port = htons(conf.port)
+
+  if connect(sock, (@*sockaddr)(&server), #sockaddr_in) < 0 then
+    local err_msg = C.strerror(C.errno)
+    close(sock)
+    return {}, err_msg
+  end
+
+  receive_response(sock, nilptr)
+
+  return {
+    sock = sock, 
+    conf = conf
+  }, ""
+end
+
+local mail.SendOpts = @record{
+  from: string,
+  to: sequence(string),
+  cc: sequence(string),
+  bcc: sequence(string),
+  content_type: string,
+  headers: sequence(string),
+  subject: string,
+  body: string,
+}
+
+function mail.Mailer:send(opts: mail.SendOpts): string
+  if opts.from == "" then
+    return "`from` cannot be an empty string"
+  end
+  if #opts.to == 0 then
+    return "`to` cannot be an empty sequence"
+  end
+  if opts.subject == "" then
+    return "`subject` cannot be an empty string"
+  end
+  if opts.body == "" then
+    return "`body` cannot be an empty string"
+  end
+  opts.content_type = opts.content_type ~= "" and opts.content_type or "text/plain"
+
+  defer close(self.sock) end
+
+  local ssl: *SSL
+
+  -- TODO: Figure out why SSL doesn't connect when set to EHLO
+  local helo_msg = "HELO " .. self.conf.domain
+  mail_assert!(send_command(self.sock, ssl, helo_msg))
+  mail_assert!(receive_response(self.sock, ssl))
+
+  if self.conf.starttls then
+    mail_assert!(send_command(self.sock, ssl, "STARTTLS"))
+    mail_assert!(receive_response(self.sock, ssl))
+
+    SSL_library_init()
+    SSL_load_error_strings()
+    OpenSSL_add_all_algorithms()
+
+    local ctx = SSL_CTX_new(TLS_client_method())
+    if ctx == nilptr then return end
+
+    ssl = SSL_new(ctx)
+    SSL_set_fd(ssl, self.sock)
+    local ssl_err_enum = SSL_get_error(ssl, SSL_connect(ssl));
+    if ssl_err_enum ~= SSL_ERROR_NONE then
+      local ssl_err_code = ERR_get_error()
+      local ssl_err_string = (@string)(ERR_error_string(ssl_err_code, nilptr))
+      if ssl_err_string ~= "" then return ssl_err_string end
+    end
+    mail_assert!(send_command(self.sock, ssl, helo_msg))
+    mail_assert!(receive_response(self.sock, ssl))
+  end
+
+  self.conf.auth_type = (
+    self.conf.auth_type == mail.AuthType.null
+    and self.conf.username ~= ""
+    and self.conf.password ~= ""
+  ) and mail.AuthType.plain or self.conf.auth_type
+
+  if self.conf.auth_type == mail.AuthType.plain then
+    mail_assert!(send_command(self.sock, ssl, "AUTH PLAIN " .. utils.b64_encode("\0" .. self.conf.username .. "\0" .. self.conf.password)))
+  elseif self.conf.auth_type == mail.AuthType.login then
+    mail_assert!(send_command(self.sock, ssl, "AUTH LOGIN"))
+    mail_assert!(receive_response(self.sock, ssl))
+
+    mail_assert!(send_command(self.sock, ssl, utils.b64_encode(self.conf.username)))
+    mail_assert!(receive_response(self.sock, ssl))
+
+    mail_assert!(send_command(self.sock, ssl, utils.b64_encode(self.conf.password)))
+    mail_assert!(receive_response(self.sock, ssl))
+  end
+
+  local from_msg = ("MAIL FROM:<%s>"):format(extract_address(opts.from))
+  mail_assert!(send_command(self.sock, ssl, from_msg))
+  mail_assert!(receive_response(self.sock, ssl))
+
+  local recepients: hashmap(string, boolean)
+
+  for _, v in ipairs(opts.to) do
+    local address = extract_address(v)
+    if not recepients:has(address) then
+      recepients[address] = true
+    end
+  end
+
+  for _, v in ipairs(opts.cc) do
+    local address = extract_address(v)
+    if not recepients:has(address) then
+      recepients[address] = true
+    end
+  end
+
+  for _, v in ipairs(opts.bcc) do
+    local address = extract_address(v)
+    if not recepients:has(address) then
+      recepients[address] = true
+    end
+  end
+
+
+  for address in pairs(recepients) do
+    local address_msg = ("RCPT TO:<%s>"):format(address)
+    mail_assert!(send_command(self.sock, ssl, address_msg))
+    mail_assert!(receive_response(self.sock, ssl))
+  end
+
+  if #opts.cc > 0 then
+    mail_assert!(send_command(self.sock, ssl, "CC: " .. string.concat(opts.cc, ",")))
+    mail_assert!(receive_response(self.sock, ssl))
+  end
+
+  if #opts.bcc > 0 then
+    mail_assert!(send_command(self.sock, ssl, "BCC: " .. string.concat(opts.bcc, ", ")))
+    mail_assert!(receive_response(self.sock, ssl))
+  end
+
+  mail_assert!(send_command(self.sock, ssl, "DATA"))
+  mail_assert!(receive_response(self.sock, ssl))
+
+  local body: sequence(string)
+
+  for _, header in ipairs(opts.headers) do
+    body:push(header)
+  end
+  body:push(("Content-Type: %s"):format(opts.content_type))
+  body:push("To: " .. string.concat(opts.to, ","))
+  if #opts.cc > 0 then
+    body:push("Cc: " .. string.concat(opts.cc, ","))
+  end
+  if #opts.bcc > 0 then
+    body:push("Bcc: " .. string.concat(opts.bcc, ","))
+  end
+  body:push(("Subject: %s"):format(opts.subject))
+  body:push(opts.body)
+  body:push(".")
+  mail_assert!(send_data(self.sock, ssl, string.concat(body, "\r\n") .. "\r\n"))
+  mail_assert!(receive_response(self.sock, ssl))
+
+  mail_assert!(send_command(self.sock, ssl, "QUIT"))
+  mail_assert!(receive_response(self.sock, ssl))
+
+  return ""
+end
+
+return mail

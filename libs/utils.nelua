@@ -4,41 +4,41 @@ require "string"
 require "math"
 require "stringbuilder"
 
-local Crypt = require ".cryptography"
+local crypt = require ".crypt"
 
---- #### Utils
+--- #### utils
 ---`
-local Utils = @record{}
+local utils = @record{}
 ---`
 
---- #### Utils.url_escape
+--- #### utils.url_escape
 --[[-
 This function escapes a string so it is url friendly
 
 ```:lang:
-print(Utils.url_escape("hello world"))
+print(utils.url_escape("hello world"))
 -- hello%20world
 ```
 -]]
 ---`
-function Utils.url_escape(s: string): string
+function utils.url_escape(s: string): string
 ---`
   return (string.gsub(s, "([^A-Za-z0-9_])", function(c: string)
       return string.format("%%%02x", string.byte(c))
   end))
 end
 
---- #### Utils.url_unescape
+--- #### utils.url_unescape
 --[[-
 This function unescapes a url string
 
 ```:lang:
-print(Utils.url_escape("hello%20world"))
+print(utils.url_escape("hello%20world"))
 -- hello world
 ```
 -]]
 ---`
-function Utils.url_unescape(s: string): string
+function utils.url_unescape(s: string): string
 ---`
   s = s:gsub("+", " ")
   return (string.gsub(s, "%%(%x%x)", function(hex: string)
@@ -46,17 +46,17 @@ function Utils.url_unescape(s: string): string
   end))
 end
 
---- #### Utils.slugify
+--- #### utils.slugify
 --[[-
 This functions converts a string to a slug suitable for a url
 
 ```:lang:
-print(Utils.slugify("Hello, World! Welcome to ChatGPT: AI for Everyone 🚀"))
+print(utils.slugify("Hello, World! Welcome to ChatGPT: AI for Everyone 🚀"))
 -- hello-world-welcome-to-chatgpt-ai-for-everyone
 ```
 -]]
 ---`
-function Utils.slugify(s: string): string
+function utils.slugify(s: string): string
 ---`
  local slug = (s:gsub("[%s_]+", "-"):gsub("[^%w%-]+", ""):gsub("-+", "-")):lower()
   if slug:match("-$") then
@@ -65,22 +65,22 @@ function Utils.slugify(s: string): string
   return slug
 end
 
---- #### Utils.sign
+--- #### utils.sign
 --[[-
 This function is what is used to sign session data
 
 ```:lang:
-print(Utils.sign("key", "data"))
+print(utils.sign("key", "data"))
 -- 5031fe3d989c6d1537a013fa6e739da23463fdaec3b70137d828e36ace221bd0
 ```
 -]]
 ---`
-function Utils.sign(key: cstring, data: cstring): string
+function utils.sign(key: cstring, data: cstring): string
 ---`
   local len: cint
-  local hmac_result = Crypt.hmac(Crypt.sha256(), key, #key, data, #data, nilptr, &len)
+  local hmac_result = crypt.hmac(crypt.sha256(), key, #key, data, #data, nilptr, &len)
 
-  local signature = Crypt.get_hex(hmac_result, len)
+  local signature = crypt.get_hex(hmac_result, len)
   return signature
 end
 
@@ -112,17 +112,17 @@ local function bits_to_byte(bits: sequence(integer))
   return sum
 end
 
---- #### Utils.b64_encode
+--- #### utils.b64_encode
 --[[-
 This function encodes a string to base64
 
 ```:lang:
-print(Utils.b64_encode("hello world"))
+print(utils.b64_encode("hello world"))
 -- aGVsbG8gd29ybGQ=
 ```
 -]]
 ---`
-function Utils.b64_encode(input: string): string
+function utils.b64_encode(input: string): string
 ---`
   local bytes: sequence(integer)
   for i = 1, #input do
@@ -158,18 +158,18 @@ function Utils.b64_encode(input: string): string
   return sb:promote()
 end
 
---- #### Utils.b64_decode
+--- #### utils.b64_decode
 --[[-
 This function decodes a string from base64
 
 ```:lang:
-print(Utils.b64_encode("aGVsbG8gd29ybGQ="))
+print(utils.b64_encode("aGVsbG8gd29ybGQ="))
 -- hello world
 ```
 
 -]]
 ---`
-function Utils.b64_decode(data: string): string
+function utils.b64_decode(data: string): string
 ---`
   data = data:gsub("=", "")
   local bits: sequence(integer)
@@ -204,21 +204,21 @@ function Utils.b64_decode(data: string): string
   return sb:promote()
 end
 
---- #### Utils.trim_wspace
+--- #### utils.trim_wspace
 --[[-
 Trims whitespae off from the ends of a string
 
 ```:lang:
-print(Utils.trim_wspace("   hello   "))
+print(utils.trim_wspace("   hello   "))
 -- hello
 ```
 -]]
 ---`
-function Utils.trim_wspace(s: string)
+function utils.trim_wspace(s: string)
 ---`
   local str_match, str_seq = s:match("^%s*(.-)%s*$")
   if not str_match then return s end
   return str_seq[1]
 end
 
-return Utils
+return utils

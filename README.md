@@ -69,6 +69,14 @@ See [send_request.nelua](#send_requestnelua)
 local http.send_request = send_request
 ```
 
+#### http.mail
+
+See [mail.nelua](#mailnelua)
+
+```lua
+local http.mail = mail
+```
+
 #### http.utils
 
 See [utils.nelua](#utilsnelua)
@@ -806,102 +814,106 @@ local result, err = send_request({
 
 ### utils.nelua
 
-#### Utils
+#### utils
 
 ```lua
-local Utils = @record{}
+local utils = @record{}
 ```
 
-#### Utils.url_escape
+#### utils.url_escape
 
 This function escapes a string so it is url friendly
 
 ```lua
-print(Utils.url_escape("hello world"))
+print(utils.url_escape("hello world"))
 -- hello%20world
 ```
 
 ```lua
-function Utils.url_escape(s: string): string
+function utils.url_escape(s: string): string
 ```
 
-#### Utils.url_unescape
+#### utils.url_unescape
 
 This function unescapes a url string
 
 ```lua
-print(Utils.url_escape("hello%20world"))
+print(utils.url_escape("hello%20world"))
 -- hello world
 ```
 
 ```lua
-function Utils.url_unescape(s: string): string
+function utils.url_unescape(s: string): string
 ```
 
-#### Utils.slugify
+#### utils.slugify
 
 This functions converts a string to a slug suitable for a url
 
 ```lua
-print(Utils.slugify("Hello, World! Welcome to ChatGPT: AI for Everyone 🚀"))
+print(utils.slugify("Hello, World! Welcome to ChatGPT: AI for Everyone 🚀"))
 -- hello-world-welcome-to-chatgpt-ai-for-everyone
 ```
 
 ```lua
-function Utils.slugify(s: string): string
+function utils.slugify(s: string): string
 ```
 
-#### Utils.sign
+#### utils.sign
 
 This function is what is used to sign session data
 
 ```lua
-print(Utils.sign("key", "data"))
+print(utils.sign("key", "data"))
 -- 5031fe3d989c6d1537a013fa6e739da23463fdaec3b70137d828e36ace221bd0
 ```
 
 ```lua
-function Utils.sign(key: cstring, data: cstring): string
+function utils.sign(key: cstring, data: cstring): string
 ```
 
-#### Utils.b64_encode
+#### utils.b64_encode
 
 This function encodes a string to base64
 
 ```lua
-print(Utils.b64_encode("hello world"))
+print(utils.b64_encode("hello world"))
 -- aGVsbG8gd29ybGQ=
 ```
 
 ```lua
-function Utils.b64_encode(input: string): string
+function utils.b64_encode(input: string): string
 ```
 
-#### Utils.b64_decode
+#### utils.b64_decode
 
 This function decodes a string from base64
 
 ```lua
-print(Utils.b64_encode("aGVsbG8gd29ybGQ="))
+print(utils.b64_encode("aGVsbG8gd29ybGQ="))
 -- hello world
 ```
 
 ```lua
-function Utils.b64_decode(data: string): string
+function utils.b64_decode(data: string): string
 ```
 
-#### Utils.trim_wspace
+#### utils.trim_wspace
 
 Trims whitespae off from the ends of a string
 
 ```lua
-print(Utils.trim_wspace("   hello   "))
+print(utils.trim_wspace("   hello   "))
 -- hello
 ```
 
 ```lua
-function Utils.trim_wspace(s: string)
+function utils.trim_wspace(s: string)
 ```
+
+### mail.nelua
+
+Docs in progress
 
 ---
   

@@ -1,0 +1,23 @@
+local http = require "..http"
+local dotenv, err = (require "dotenv").load(".env")
+assert(err == "")
+local username = dotenv:get("MAILER_USERNAME")
+
+local mailer, err = http.mail.new({
+  host = "smtp.gmail.com",
+  port = 587,
+  starttls = true,
+  username = username,
+  password = dotenv:get("MAILER_PASSWORD"),
+})
+assert(err == "", err)
+
+local err= mailer:send({
+  from = username,
+  to = {dotenv:get("MAILER_TEST_TO")},
+  cc = {dotenv:get("MAILER_TEST_CC")},
+  subject = "Test",
+  body = "hello",
+})
+assert(err == "", err)
+
