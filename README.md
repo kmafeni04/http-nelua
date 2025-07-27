@@ -1,6 +1,6 @@
-# http.nelua
+# nttp.nelua
 
-A HTTP 1.1 webserver library for nelua
+A http 1.1 webserver library for nelua
 
 ## Features
 - Routing
@@ -22,8 +22,8 @@ A HTTP 1.1 webserver library for nelua
 Add to your nlpm package dependencies
 ```lua
 {
-  name = "http-nelua",
-  repo = "https://github.com/kmafeni04/http-nelua",
+  name = "nttp-nelua",
+  repo = "https://github.com/kmafeni04/nttp-nelua",
   version = "COMMIT-HASH-OR-TAG",
 },
 ```
@@ -32,12 +32,12 @@ Run `nlpm install`
 ## Quick start
 
 ```lua
-local http = require "http"
+local nttp = require "nttp"
 
-local app = http.Server.new()
+local app = nttp.Server.new()
 
-app:get(nil, "/", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "hello, world")
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "hello, world")
 end)
 
 app:serve()
@@ -45,52 +45,52 @@ app:serve()
 
 ## Reference
 
-### http.nelua
+### nttp.nelua
 
-#### http
+#### nttp
 
 ```lua
-local http = @record{}
+local nttp = @record{}
 ```
 
-#### http.json
+#### nttp.json
 
 See [json-nelua](https://github.com/kmafeni04/json-nelua)
 
 ```lua
-local http.json = json
+local nttp.json = json
 ```
 
-#### http.send_request
+#### nttp.send_request
 
 See [send_request.nelua](#send_requestnelua)
 
 ```lua
-local http.send_request = send_request
+local nttp.send_request = send_request
 ```
 
-#### http.mail
+#### nttp.mail
 
 See [mail.nelua](#mailnelua)
 
 ```lua
-local http.mail = mail
+local nttp.mail = mail
 ```
 
-#### http.utils
+#### nttp.utils
 
 See [utils.nelua](#utilsnelua)
 
 ```lua
-local http.utils = utils
+local nttp.utils = utils
 ```
 
-#### http.Status
+#### nttp.Status
 
-Enum list of different possible HTTP status codes
+Enum list of different possible nttp status codes
 
 ```lua
-local http.Status = @enum{
+local nttp.Status = @enum{
   Continue = 100,
   SwitchingProtocols = 101,
   Processing = 102,
@@ -161,71 +161,71 @@ local http.Status = @enum{
 }
 ```
 
-#### http.TriBool
+#### nttp.TriBool
 
 ```lua
-local http.TriBool= @enum{
+local nttp.TriBool= @enum{
   NULL = -1,
   FALSE,
   TRUE
 }
 ```
 
-#### http.Cookie
+#### nttp.Cookie
 
 ```lua
-local http.Cookie = @record{
+local nttp.Cookie = @record{
   name: string,
   val: string,
   path: string,
   domain: string,
   expires: string,
-  secure: http.TriBool,
-  httpOnly: http.TriBool
+  secure: nttp.TriBool,
+  httpOnly: nttp.TriBool
 }
 ```
 
-#### http.Response
+#### nttp.Response
 
 ```lua
-local http.Response = @record{
+local nttp.Response = @record{
   body: string,
-  status: http.Status,
+  status: nttp.Status,
   content_type: string,
   headers: hashmap(string, string),
-  cookies: sequence(http.Cookie)
+  cookies: sequence(nttp.Cookie)
 }
 ```
 
-#### http.Response:destroy
+#### nttp.Response:destroy
 
 Destorys the response object and sets it to a zeroed state
 
 ```lua
-function http.Response:destroy()
+function nttp.Response:destroy()
 ```
 
-#### http.Response:tostring
+#### nttp.Response:tostring
 
-This function converts your response into a http request string
+This function converts your response into a nttp request string
 
 ```lua
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
-  print(resp:tostring()) -- "HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  print(resp:tostring()) -- "nttp/1.1 200 OK\r\nServer: nttp-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
   return resp
 end)
 ```
 
 ```lua
-function http.Response:tostring(): string
+function nttp.Response:tostring(): string
 ```
 
-#### http.Response:set_header
+#### nttp.Response:set_header
 
 Sets a header to be sent with the response
 ```lua
-app:get(nil, "/", function(self: *http.Server)
+app:get(nil, "/", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
   local err = resp:set_header("name", "james")
   if err ~= "" then
@@ -236,15 +236,15 @@ end)
 ```
 
 ```lua
-function http.Response:set_header(key: string, val: string):  string
+function nttp.Response:set_header(key: string, val: string):  string
 ```
 
-#### http.Response:set_cookie
+#### nttp.Response:set_cookie
 
 Sets a cookie to be sent with the response
 
 ```lua
-app:get(nil, "/", function(self: *http.Server)
+app:get(nil, "/", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
   local err = resp:set_cookie({
     name = "name",
@@ -258,24 +258,24 @@ end)
 ```
 
 ```lua
-function http.Response:set_cookie(c: http.Cookie):  string
+function nttp.Response:set_cookie(c: nttp.Cookie):  string
 ```
 
-#### http.Session
+#### nttp.Session
 
 ```lua
-local http.Session = @record{
+local nttp.Session = @record{
   vals: hashmap(string, string),
   send: boolean
 }
 ```
 
-#### http.Session:set_val
+#### nttp.Session:set_val
 
 This function is used to set values that will be stored in the sesssion
 
 ```lua
-app:get(nil, "/", function(self: *http.Server)
+app:get(nil, "/", function(self: *nttp.Server)
   self.session:set_val("name", "james")
   self.session:set_val("age", "10")
   return self:text(200, "ok")
@@ -283,25 +283,25 @@ end)
 ```
 
 ```lua
-function http.Session:set_val(name: string, val: string): string
+function nttp.Session:set_val(name: string, val: string): string
 ```
 
-#### http.Session:get_val(name: string): string
+#### nttp.Session:get_val(name: string): string
 
 This function is used to get values that are stored in the sesssion
 
 ```lua
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local name = self.session:get_val("name")
   local age = self.session:get_val("age")
   return self:text(200, "ok")
 end)
 ```
 
-#### http.Request
+#### nttp.Request
 
 ```lua
-local http.Request = @record{
+local nttp.Request = @record{
   method: string,
   version: string,
   headers: hashmap(string, string),
@@ -311,86 +311,86 @@ local http.Request = @record{
 }
 ```
 
-#### http.Request:get_header
+#### nttp.Request:get_header
 
 Gets a header from the request object
 
 ```lua
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local name = self.req:get_header("name")
   return self:text(200, "ok")
 end)
 
 ```lua
-function http.Request:get_header(name: string): string
+function nttp.Request:get_header(name: string): string
 ```
 
-#### http.Request:get_cookie
+#### nttp.Request:get_cookie
 
 Gets a cookie from the request object
 
 ```lua
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local name = self.req:get_cookie("name")
   return self:text(200, "ok")
 end)
 
 ```lua
-function http.Request:get_cookie(name: string): string
+function nttp.Request:get_cookie(name: string): string
 ```
 
-#### http.Config
+#### nttp.Config
 
-Defaults are only set if the server is instantiated with [http.Server.new](#httpservernew)
+Defaults are only set if the server is instantiated with [nttp.Server.new](#httpservernew)
 - port: The port you want the server to run on, default is `8080`
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
 - session_name: Name of cookie used to store the session, default is `http_session`
-- log: This determines whether the server will log the request information to the console, default is [http.TriBool](#httptribool).NULL
+- log: This determines whether the server will log the request information to the console, default is [nttp.TriBool](#httptribool).NULL
 
 ```lua
-local http.Config = @record{
+local nttp.Config = @record{
   port: uinteger,
   bind_host: string,
   secret: string,
   session_name: string,
-  log: http.TriBool
+  log: nttp.TriBool
 }
 ```
 
-#### http.BeforeFn
+#### nttp.BeforeFn
 
-Type Alias describing the function signature of before functions called in the [http.Server:before_filter](#httpserverbefore_filter)
+Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#httpserverbefore_filter)
 
 ```lua
-local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
+local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
 ```
 
-#### http.ActionFn
+#### nttp.ActionFn
 
-Type Alias describing the function signature of action functions called on a [http.Server:#|method|#](#httpservermethod)
+Type Alias describing the function signature of action functions called on a [nttp.Server:#|method|#](#httpservermethod)
 
 ```lua
-local http.ActionFn = @function(self: *http.Server): http.Response
+local nttp.ActionFn = @function(self: *nttp.Server): nttp.Response
 ```
 
-#### http.Server
+#### nttp.Server
 
 ```lua
-http.Server = @record{
-  config: http.Config,
+nttp.Server = @record{
+  config: nttp.Config,
   static_dir: string,
   static_name: string,
   static_headers: hashmap(string, string),
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
   named_routes: hashmap(string, string),
-  req: http.Request,
-  default_route: http.ActionFn,
-  handle_404: http.ActionFn,
-  session: http.Session,
-  before_funcs: sequence(http.BeforeFn),
-  write: function(self: *http.Server, s: string): string,
+  req: nttp.Request,
+  default_route: nttp.ActionFn,
+  handle_404: nttp.ActionFn,
+  session: nttp.Session,
+  before_funcs: sequence(nttp.BeforeFn),
+  write: function(self: *nttp.Server, s: string): string,
   written: boolean,
   _fd: integer
 }
@@ -482,31 +482,31 @@ local mime_types = map!(string, string, {
 })
 ```
 
-#### http.Server:set_static
+#### nttp.Server:set_static
 
 This sets the directory when static files will be read from as well as the name that will be used for routing
 
 ```lua
-local app = http.Server.new()
+local app = nttp.Server.new()
 
 app:set_static("./static", "static")
 
-app:get(nil, "/", function(self: *http.Server): http.Response
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
   return self:html(200, '<link rel="stylesheet" href="/static/test.css" />')
 end)
 ```
 
 ```lua
-function http.Server:set_static(dir: string, name: string)
+function nttp.Server:set_static(dir: string, name: string)
 ```
 
-#### http.Server:before_filter
+#### nttp.Server:before_filter
 
 This adds functions that will run before every request
-The [http.BeforeFn](#httpbeforefn) returns a boolean and a [http.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
+The [nttp.BeforeFn](#httpbeforefn) returns a boolean and a [nttp.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
 
 ```lua
-app:before_filter(function(self: *http.Server): (boolean, http.Response)
+app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
   self.session:set_val("val", "test")
   if self.req.current_path ~= self:url_for("test") and self.session:get_val("val") == "test" then
     return true, self:redirect("/test")
@@ -516,56 +516,56 @@ end)
 ```
 
 ```lua
-function http.Server:before_filter(fn: http.BeforeFn)
+function nttp.Server:before_filter(fn: nttp.BeforeFn)
 ```
 
-#### Supported HTTP Methods
+#### Supported nttp Methods
 
 ```lua
 ## local methods = {"get", "post", "put", "patch", "delete"}
 ```
 
-#### http.Server:#|method|#
+#### nttp.Server:#|method|#
 
-These are routing functions where `method` could be one of the [supported http methods](#supported-http-methods)
+These are routing functions where `method` could be one of the [supported nttp methods](#supported-nttp-methods)
 
 ```lua
-local http = require "path.to.http"
+local nttp = require "path.to.nttp"
 
-local app = http.Server.new()
+local app = nttp.Server.new()
 
-app:get(nil, "/", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "hello, world")
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "hello, world")
 end)
 ```
-- name: This can be provided to set a name for a route, usually to be used with the [http.Server:url_for](#httpserverurlfor) function
+- name: This can be provided to set a name for a route, usually to be used with the [nttp.Server:url_for](#httpserverurlfor) function
 - route: The actual route that will be called
 - action: The function to be called when the route is hit
 
 ```lua
-function http.Server:#|method|#(name: facultative(string), route: string, action: http.ActionFn)
+function nttp.Server:#|method|#(name: facultative(string), route: string, action: nttp.ActionFn)
 ```
 
-#### http.Server.UrlForOpts
+#### nttp.Server.UrlForOpts
 
-Used to alter the returned url from [http.Server:url_for](#httpserverurl_for)
+Used to alter the returned url from [nttp.Server:url_for](#httpserverurl_for)
 
 ```lua
-local http.Server.UrlForOpts = @record{
+local nttp.Server.UrlForOpts = @record{
   route_params: hashmap(string, string),
   query_params: hashmap(string, string)
 }
 ```
 
-#### http.Server:url_for
+#### nttp.Server:url_for
 
 This function returns the route of the relevant name
-`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [http.Server.UrlForOpts](#httpserverurlforopts)
+`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [nttp.Server.UrlForOpts](#httpserverurlforopts)
 
 Examples:
 
 ```lua
-app:get("get_params", "/get_params", function(self: *http.Server)
+app:get("get_params", "/get_params", function(self: *nttp.Server)
   local route_params: hashmap(string, string)
   route_params["id"]   = "10"
   route_params["name"] = "james"
@@ -580,107 +580,107 @@ app:get("get_params", "/get_params", function(self: *http.Server)
   })))
 end)
 
-app:get("params", "/params/:id/:name/*", function(self: *http.Server)
+app:get("params", "/params/:id/:name/*", function(self: *nttp.Server)
   return self:text(200, self.req.params["id"] .. " " .. self.req.params["name"] .. " " .. self.req.params["*"])
 end)
 -- Should return "/params/10/james/splat?id=10&name=james"
 ```
 
 ```lua
-app:get(nil, "/", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, self:url_for("test"))
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, self:url_for("test"))
 end)
 -- will return "/really-long-name"
 
-app:get("test", "/really-long-name", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "hello, world")
+app:get("test", "/really-long-name", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "hello, world")
 end)
 ```
 
 ```lua
-function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string
+function nttp.Server:url_for(name: string, opts: nttp.Server.UrlForOpts): string
 ```
 
-#### http.Server:html
+#### nttp.Server:html
 
-helper function for commonly returned [http.Response](#httpresponse) to specify the response is `html`
+helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `html`
 
 ```lua
-function http.Server:html(code: http.Status, html: string): http.Response
+function nttp.Server:html(code: nttp.Status, html: string): nttp.Response
 ```
 
-#### http.Server:json
+#### nttp.Server:json
 
-helper function for commonly returned [http.Response](#httpresponse) to specify the response is `json`
+helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `json`
 -`body`: Can either be a string or a json serializable object
 
 ```lua
-function http.Server:json(code: http.Status, body: overload(string, auto)): http.Response
+function nttp.Server:json(code: nttp.Status, body: overload(string, auto)): nttp.Response
 ```
 
-#### http.Server:text
+#### nttp.Server:text
 
-helper function for commonly returned [http.Response](#httpresponse) to specify the response is `text`
+helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `text`
 
 ```lua
-function http.Server:text(code: http.Status, text: string): http.Response
+function nttp.Server:text(code: nttp.Status, text: string): nttp.Response
 ```
 
-#### http.Server:redirect
+#### nttp.Server:redirect
 
 helper function to specify that the return should be a redirect and redirect to `path`
 
 ```lua
-app:get(nil, "/", function(self: *http.Server): http.Response
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
   return self:redirect(self:url_for("actual"))
 end)
 
-app:get("actual", "/actual-path", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "ok")
+app:get("actual", "/actual-path", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "ok")
 end)
 ```
 
 ```lua
-function http.Server:redirect(path: string): http.Response
+function nttp.Server:redirect(path: string): nttp.Response
 ```
 
-#### http.Server:error
+#### nttp.Server:error
 
-Helper function that returns a http text response with a 500 error code and message "Internal Server Error"
+Helper function that returns a nttp text response with a 500 error code and message "Internal Server Error"
 
 ```lua
-function http.Server:error(): http.Response
+function nttp.Server:error(): nttp.Response
 ```
 
-#### http.csrf
+#### nttp.csrf
 
 ```lua
-local http.csrf = @record{}
+local nttp.csrf = @record{}
 ```
 
-#### http.csrf.generate_token
+#### nttp.csrf.generate_token
 
 This function generates a csrf token that is stored in your session and returns it as a value
 If a token already exists, it returns that and doesn't create a new one
 
 ```lua
-app:before_filter(function(self: *http.Server): (boolean, http.Response)
-  local token = http.csrf.generate_token(self)
+app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
+  local token = nttp.csrf.generate_token(self)
   return false, {}
 end)
 ```
 
 ```lua
-function http.csrf.generate_token(self: *http.Server): string
+function nttp.csrf.generate_token(self: *nttp.Server): string
 ```
 
-#### http.csrf.validate_token
+#### nttp.csrf.validate_token
 
 This function checks that there is a csrf token in your session and that the token passed in your request params matches it
 
 ```lua
-app:post(nil, "/test", function(self: *http.Server)
-  if not http.csrf.validate_token(self) then
+app:post(nil, "/test", function(self: *nttp.Server)
+  if not nttp.csrf.validate_token(self) then
     return self:text(403, "forbidden")
   end
   return self:text(200, "ok")
@@ -688,22 +688,22 @@ end)
 ```
 
 ```lua
-function http.csrf.validate_token(self: *http.Server): boolean
+function nttp.csrf.validate_token(self: *nttp.Server): boolean
 ```
 
-#### http.Server:serve
+#### nttp.Server:serve
 
 This function starts the server
 It should always be the last line of your file
 
 ```lua
-function http.Server:serve()
+function nttp.Server:serve()
 ```
 
-#### http.MockRequestOpts
+#### nttp.MockRequestOpts
 
 ```lua
-local http.MockRequestOpts = @record{
+local nttp.MockRequestOpts = @record{
   method: string,
   params: hashmap(string, string),
   headers: hashmap(string, string),
@@ -712,38 +712,38 @@ local http.MockRequestOpts = @record{
 }
 ```
 
-#### http.Server:mock_request
+#### nttp.Server:mock_request
 
 This function is meant for testing and helps you simulate requests to your server
 
 ```lua
-function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (http.Response, string)
+function nttp.Server:mock_request(path: string, opts: nttp.MockRequestOpts): (nttp.Response, string)
 ```
 
-#### http.Server.new
+#### nttp.Server.new
 
-This function returns a new [http.Server](#httpserver) instance that will be used throughout your app
+This function returns a new [nttp.Server](#httpserver) instance that will be used throughout your app
 
-The `config` param can be ommited and default values will be used, it is of type [http.Config](#httpconfig)
+The `config` param can be ommited and default values will be used, it is of type [nttp.Config](#httpconfig)
 
 ```lua
-local http = require "path.to.http"
+local nttp = require "path.to.nttp"
 
-local app = http.new({
+local app = nttp.new({
   secret = os.getenv("SECRET"),
   session_name = "my_app"
 })
 ```
 
 ```lua
-function http.Server.new(config: http.Config): http.Server
+function nttp.Server.new(config: nttp.Config): nttp.Server
 ```
 
 To write to the client, the `write` method is called
 Below is the default implementation
 
 ```lua
-  s.write = function(self:*http.Server, s: string): string
+  s.write = function(self:*nttp.Server, s: string): string
     local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
     if written_bytes == -1 then
       local err_msg = C.strerror(C.errno)
@@ -757,7 +757,7 @@ When a request does not match any of the routes you've defined, the `default_rou
 Below is the default implementation
 
 ```lua
-  s.default_route = function(self: *http.Server)
+  s.default_route = function(self: *nttp.Server)
     if self.req.current_path:match("./$") then
       local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
       return self:redirect(stripped)
@@ -771,8 +771,8 @@ In the default `default_route`, the method `handle_404` is called when the path 
 Below is the default implementation
 
 ```lua
-  s.handle_404 = function(self: *http.Server)
-    return self:text(http.Status.NotFound, "Page or resource not found")
+  s.handle_404 = function(self: *nttp.Server)
+    return self:text(nttp.Status.NotFound, "Page or resource not found")
   end
 ```
 

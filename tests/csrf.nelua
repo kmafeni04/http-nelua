@@ -1,18 +1,18 @@
-local http = require "..http"
+local nttp = require "..nttp"
 
-local csrf = http.csrf
+local csrf = nttp.csrf
 
 local token = "16ab063e36422a30cf480a2b91c39aaffd9775ee168e5ab184d3a6ea195c7ed4"
 
 do
-  local server = http.Server.new()
+  local server = nttp.Server.new()
   local result = csrf.generate_token(&server)
   assert(result ~= "")
   assert(#result == 64)
 end
 
 do
-  local server = http.Server.new()
+  local server = nttp.Server.new()
   server.session:set_val("csrf_token", token)
   local result = csrf.generate_token(&server)
   local expected = token
@@ -20,7 +20,7 @@ do
 end
 
 do
-  local server = http.Server.new()
+  local server = nttp.Server.new()
   server.session:set_val("csrf_token", token)
   server.req.params["csrf_token"] = token
   local result = csrf.validate_token(&server)
@@ -28,7 +28,7 @@ do
 end
 
 do
-  local server = http.Server.new()
+  local server = nttp.Server.new()
   server.req.params["csrf_token"] = token
   local result = csrf.validate_token(&server)
   assert(not result)

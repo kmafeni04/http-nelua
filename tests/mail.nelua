@@ -1,9 +1,9 @@
-local http = require "..http"
+local nttp = require "..nttp"
 local dotenv, err = (require "dotenv").load(".env")
 assert(err == "")
 local username = dotenv:get("MAILER_USERNAME")
 
-local mailer, err = http.mail.new({
+local mailer, err = nttp.mail.new({
   host = "smtp.gmail.com",
   port = 587,
   starttls = true,

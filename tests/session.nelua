@@ -1,17 +1,17 @@
-local http = require "..http"
+local nttp = require "..nttp"
 
 do
-  local app = http.Server.new({
-    log = http.TriBool.FALSE
+  local app = nttp.Server.new({
+    log = nttp.TriBool.FALSE
   })
-  app:get(nil, "/", function(self: *http.Server)
+  app:get(nil, "/", function(self: *nttp.Server)
     self.session:set_val("name", "james")
     self.session:set_val("age", "10")
     
     return self:text(200, "ok")
   end)
 
-  app:get(nil, "/test", function(self: *http.Server)
+  app:get(nil, "/test", function(self: *nttp.Server)
     local name = self.session:get_val("name")
     local age = self.session:get_val("age")
     assert(name == "james")
@@ -32,11 +32,11 @@ do
 end
 
 do
-  local app = http.Server.new({
-    log = http.TriBool.FALSE
+  local app = nttp.Server.new({
+    log = nttp.TriBool.FALSE
   })
 
-  app:get(nil, "/test", function(self: *http.Server)
+  app:get(nil, "/test", function(self: *nttp.Server)
     local name = self.session:get_val("name")
     local age = self.session:get_val("age")
     assert(name == "")

@@ -1,9 +1,9 @@
-local http = require "..http"
+local nttp = require "..nttp"
 
 -- These tests are reliant on the network and would fail without one
 -- This may not equate to the function not working correctly
 do
-  local result, err = http.send_request({
+  local result, err = nttp.send_request({
     url = "https://dummy-json.mock.beeceptor.com/posts/1",
     method = "get"
   })
@@ -23,7 +23,7 @@ end
 
 do
   -- expected is too large so chosen to ignore it
-  local result, err = http.send_request({
+  local result, err = nttp.send_request({
     url = "http://httpforever.com/",
     method = "get"
   })
@@ -33,7 +33,7 @@ end
 
 do
   -- chunked response test
-  local result, err = http.send_request({
+  local result, err = nttp.send_request({
     url = "https://anglesharp.azurewebsites.net/Chunked",
     method = "get"
   })

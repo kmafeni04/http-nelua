@@ -1,11 +1,11 @@
-local http = require "..http"
+local nttp = require "..nttp"
 
 do
-  local app = http.Server.new({
-    log = http.TriBool.FALSE
+  local app = nttp.Server.new({
+    log = nttp.TriBool.FALSE
   })
 
-  app:get(nil, "/", function(self: *http.Server)
+  app:get(nil, "/", function(self: *nttp.Server)
     local resp = self:text(200, "ok")
     local ok = resp:set_cookie({
       name = "name",
@@ -20,7 +20,7 @@ do
 end
 
 do
-  local app = http.Server.new()
+  local app = nttp.Server.new()
   app.req.headers["Cookie"] = "name=james; age=10"
 
   local name = app.req:get_cookie("name")

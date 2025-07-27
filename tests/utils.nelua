@@ -1,6 +1,6 @@
-local http = require("..http")
+local nttp = require "..nttp"
 
-local utils = http.utils
+local utils = nttp.utils
 
 do
   local result = utils.url_escape("hello world")

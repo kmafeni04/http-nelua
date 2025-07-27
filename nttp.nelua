@@ -1,4 +1,4 @@
---- ### http.nelua
+--- ### nttp.nelua
 
 require "C.string"
 require "C.errno"
@@ -23,36 +23,36 @@ local mail = require ".libs.mail"
 local utils = require ".libs.utils"
 local logger = require ".libs.logger"
 
---- #### http
+--- #### nttp
 ---`
-local http = @record{}
+local nttp = @record{}
 ---`
 
---- #### http.json
+--- #### nttp.json
 --- See [json-nelua](https://github.com/kmafeni04/json-nelua)
 ---`
-local http.json = json
+local nttp.json = json
 ---`
---- #### http.send_request
+--- #### nttp.send_request
 --- See [send_request.nelua](#send_requestnelua)
 ---`
-local http.send_request = send_request
+local nttp.send_request = send_request
 ---`
---- #### http.mail
+--- #### nttp.mail
 --- See [mail.nelua](#mailnelua)
 ---`
-local http.mail = mail
+local nttp.mail = mail
 ---`
---- #### http.utils
+--- #### nttp.utils
 --- See [utils.nelua](#utilsnelua)
 ---`
-local http.utils = utils
+local nttp.utils = utils
 ---`
 
---- #### http.Status
---- Enum list of different possible HTTP status codes
+--- #### nttp.Status
+--- Enum list of different possible nttp status codes
 ---`
-local http.Status = @enum{
+local nttp.Status = @enum{
   Continue = 100,
   SwitchingProtocols = 101,
   Processing = 102,
@@ -123,131 +123,131 @@ local http.Status = @enum{
 }
 ---`
 
-local function status_text(code: http.Status): string
+local function status_text(code: nttp.Status): string
 	switch code do
-	case http.Status.Continue then
+	case nttp.Status.Continue then
 		return "Continue"
-	case http.Status.SwitchingProtocols then
+	case nttp.Status.SwitchingProtocols then
 		return "Switching Protocols"
-	case http.Status.Processing then
+	case nttp.Status.Processing then
 		return "Processing"
-	case http.Status.EarlyHints then
+	case nttp.Status.EarlyHints then
 		return "Early Hints"
-	case http.Status.OK then
+	case nttp.Status.OK then
 		return "OK"
-	case http.Status.Created then
+	case nttp.Status.Created then
 		return "Created"
-	case http.Status.Accepted then
+	case nttp.Status.Accepted then
 		return "Accepted"
-	case http.Status.NonAuthoritativeInfo then
+	case nttp.Status.NonAuthoritativeInfo then
 		return "Non-Authoritative Information"
-	case http.Status.NoContent then
+	case nttp.Status.NoContent then
 		return "No Content"
-	case http.Status.ResetContent then
+	case nttp.Status.ResetContent then
 		return "Reset Content"
-	case http.Status.PartialContent then
+	case nttp.Status.PartialContent then
 		return "Partial Content"
-	case http.Status.MultiStatus then
+	case nttp.Status.MultiStatus then
 		return "Multi-Status"
-	case http.Status.AlreadyReported then
+	case nttp.Status.AlreadyReported then
 		return "Already Reported"
-	case http.Status.IMUsed then
+	case nttp.Status.IMUsed then
 		return "IM Used"
-	case http.Status.MultipleChoices then
+	case nttp.Status.MultipleChoices then
 		return "Multiple Choices"
-	case http.Status.MovedPermanently then
+	case nttp.Status.MovedPermanently then
 		return "Moved Permanently"
-	case http.Status.Found then
+	case nttp.Status.Found then
 		return "Found"
-	case http.Status.SeeOther then
+	case nttp.Status.SeeOther then
 		return "See Other"
-	case http.Status.NotModified then
+	case nttp.Status.NotModified then
 		return "Not Modified"
-	case http.Status.UseProxy then
+	case nttp.Status.UseProxy then
 		return "Use Proxy"
-	case http.Status.TemporaryRedirect then
+	case nttp.Status.TemporaryRedirect then
 		return "Temporary Redirect"
-	case http.Status.PermanentRedirect then
+	case nttp.Status.PermanentRedirect then
 		return "Permanent Redirect"
-	case http.Status.BadRequest then
+	case nttp.Status.BadRequest then
 		return "Bad Request"
-	case http.Status.Unauthorized then
+	case nttp.Status.Unauthorized then
 		return "Unauthorized"
-	case http.Status.PaymentRequired then
+	case nttp.Status.PaymentRequired then
 		return "Payment Required"
-	case http.Status.Forbidden then
+	case nttp.Status.Forbidden then
 		return "Forbidden"
-	case http.Status.NotFound then
+	case nttp.Status.NotFound then
 		return "Not Found"
-	case http.Status.MethodNotAllowed then
+	case nttp.Status.MethodNotAllowed then
 		return "Method Not Allowed"
-	case http.Status.NotAcceptable then
+	case nttp.Status.NotAcceptable then
 		return "Not Acceptable"
-	case http.Status.ProxyAuthRequired then
+	case nttp.Status.ProxyAuthRequired then
 		return "Proxy Authentication Required"
-	case http.Status.RequestTimeout then
+	case nttp.Status.RequestTimeout then
 		return "Request Timeout"
-	case http.Status.Conflict then
+	case nttp.Status.Conflict then
 		return "Conflict"
-	case http.Status.Gone then
+	case nttp.Status.Gone then
 		return "Gone"
-	case http.Status.LengthRequired then
+	case nttp.Status.LengthRequired then
 		return "Length Required"
-	case http.Status.PreconditionFailed then
+	case nttp.Status.PreconditionFailed then
 		return "Precondition Failed"
-	case http.Status.RequestEntityTooLarge then
+	case nttp.Status.RequestEntityTooLarge then
 		return "Request Entity Too Large"
-	case http.Status.RequestURITooLong then
+	case nttp.Status.RequestURITooLong then
 		return "Request URI Too Long"
-	case http.Status.UnsupportedMediaType then
+	case nttp.Status.UnsupportedMediaType then
 		return "Unsupported Media Type"
-	case http.Status.RequestedRangeNotSatisfiable then
+	case nttp.Status.RequestedRangeNotSatisfiable then
 		return "Requested Range Not Satisfiable"
-	case http.Status.ExpectationFailed then
+	case nttp.Status.ExpectationFailed then
 		return "Expectation Failed"
-	case http.Status.Teapot then
+	case nttp.Status.Teapot then
 		return "I'm a teapot"
-	case http.Status.MisdirectedRequest then
+	case nttp.Status.MisdirectedRequest then
 		return "Misdirected Request"
-	case http.Status.UnprocessableEntity then
+	case nttp.Status.UnprocessableEntity then
 		return "Unprocessable Entity"
-	case http.Status.Locked then
+	case nttp.Status.Locked then
 		return "Locked"
-	case http.Status.FailedDependency then
+	case nttp.Status.FailedDependency then
 		return "Failed Dependency"
-	case http.Status.TooEarly then
+	case nttp.Status.TooEarly then
 		return "Too Early"
-	case http.Status.UpgradeRequired then
+	case nttp.Status.UpgradeRequired then
 		return "Upgrade Required"
-	case http.Status.PreconditionRequired then
+	case nttp.Status.PreconditionRequired then
 		return "Precondition Required"
-	case http.Status.TooManyRequests then
+	case nttp.Status.TooManyRequests then
 		return "Too Many Requests"
-	case http.Status.RequestHeaderFieldsTooLarge then
+	case nttp.Status.RequestHeaderFieldsTooLarge then
 		return "Request Header Fields Too Large"
-	case http.Status.UnavailableForLegalReasons then
+	case nttp.Status.UnavailableForLegalReasons then
 		return "Unavailable For Legal Reasons"
-	case http.Status.InternalServerError then
+	case nttp.Status.InternalServerError then
 		return "Internal Server Error"
-	case http.Status.NotImplemented then
+	case nttp.Status.NotImplemented then
 		return "Not Implemented"
-	case http.Status.BadGateway then
+	case nttp.Status.BadGateway then
 		return "Bad Gateway"
-	case http.Status.ServiceUnavailable then
+	case nttp.Status.ServiceUnavailable then
 		return "Service Unavailable"
-	case http.Status.GatewayTimeout then
+	case nttp.Status.GatewayTimeout then
 		return "Gateway Timeout"
-	case http.Status.HTTPVersionNotSupported then
-		return "HTTP Status.Version Not Supported"
-	case http.Status.VariantAlsoNegotiates then
+	case nttp.Status.HTTPVersionNotSupported then
+		return "nttp Status.Version Not Supported"
+	case nttp.Status.VariantAlsoNegotiates then
 		return "Variant Also Negotiates"
-	case http.Status.InsufficientStorage then
+	case nttp.Status.InsufficientStorage then
 		return "Insufficient Storage"
-	case http.Status.LoopDetected then
+	case nttp.Status.LoopDetected then
 		return "Loop Detected"
-	case http.Status.NotExtended then
+	case nttp.Status.NotExtended then
 		return "Not Extended"
-	case http.Status.NetworkAuthenticationRequired then
+	case nttp.Status.NetworkAuthenticationRequired then
 		return "Network Authentication Required"
   else
   	return ""
@@ -255,72 +255,72 @@ local function status_text(code: http.Status): string
 end
 
 
---- #### http.TriBool
+--- #### nttp.TriBool
 ---`
-local http.TriBool= @enum{
+local nttp.TriBool= @enum{
   NULL = -1,
   FALSE,
   TRUE
 }
 ---`
 
---- #### http.Cookie 
+--- #### nttp.Cookie 
 ---`
-local http.Cookie = @record{
+local nttp.Cookie = @record{
   name: string,
   val: string,
   path: string,
   domain: string,
   expires: string,
-  secure: http.TriBool,
-  httpOnly: http.TriBool
+  secure: nttp.TriBool,
+  httpOnly: nttp.TriBool
 }
 ---`
 
---- #### http.Response
+--- #### nttp.Response
 ---`
-local http.Response = @record{
+local nttp.Response = @record{
   body: string,
-  status: http.Status,
+  status: nttp.Status,
   content_type: string,
   headers: hashmap(string, string),
-  cookies: sequence(http.Cookie)
+  cookies: sequence(nttp.Cookie)
 }
 ---`
 
---- #### http.Response:destroy
+--- #### nttp.Response:destroy
 --- Destorys the response object and sets it to a zeroed state
 ---`
-function http.Response:destroy()
+function nttp.Response:destroy()
 ---`
   self.headers:destroy()
   self.cookies:destroy()
-  self = (@*http.Response)()
+  self = (@*nttp.Response)()
 end
 
---- #### http.Response:tostring
+--- #### nttp.Response:tostring
 --[[-
-This function converts your response into a http request string
+This function converts your response into a nttp request string
 
 ```:lang:
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
-  print(resp:tostring()) -- "HTTP/1.1 200 OK\r\nServer: http-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  print(resp:tostring()) -- "nttp/1.1 200 OK\r\nServer: nttp-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
   return resp
 end)
 ```
 -]]
 ---`
-function http.Response:tostring(): string
+function nttp.Response:tostring(): string
 ---`
   local status_msg = status_text(self.status)
   if self.content_type == "" then
     self.content_type = "text/html"
   end
   local sb: stringbuilder
-  sb:write(("HTTP/1.1 %s %s\r\n"):format(self.status, status_msg))
+  sb:write(("nttp/1.1 %s %s\r\n"):format(self.status, status_msg))
   if not (self.headers:has("Server") and self.headers["Server"] == "") then
-    sb:write("Server: http-nelua\r\n")
+    sb:write("Server: nttp-nelua\r\n")
   end
   if not (self.headers:has("Date") and self.headers["Date"] == "") then
     local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
@@ -349,10 +349,10 @@ function http.Response:tostring(): string
       if v.expires ~= "" then
         sb:write(("; Expires=%s"):format(v.expires))
       end
-      if v.secure == http.TriBool.NULL or v.secure == http.TriBool.TRUE then
+      if v.secure == nttp.TriBool.NULL or v.secure == nttp.TriBool.TRUE then
         sb:write(("; Secure"):format(v.secure))
       end
-      if v.httpOnly == http.TriBool.NULL or v.httpOnly == http.TriBool.TRUE then
+      if v.httpOnly == nttp.TriBool.NULL or v.httpOnly == nttp.TriBool.TRUE then
         sb:write(("; HttpOnly"):format(v.httpOnly))
       end
       sb:write("\r\n")
@@ -364,11 +364,11 @@ function http.Response:tostring(): string
   return sb:promote()
 end
 
---- #### http.Response:set_header
+--- #### nttp.Response:set_header
 --[[-
 Sets a header to be sent with the response
 ```:lang:
-app:get(nil, "/", function(self: *http.Server)
+app:get(nil, "/", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
   local err = resp:set_header("name", "james")
   if err ~= "" then
@@ -379,7 +379,7 @@ end)
 ```
 -]]
 ---`
-function http.Response:set_header(key: string, val: string):  string
+function nttp.Response:set_header(key: string, val: string):  string
 ---`
   if key == "" then
     return "Key cannot be an empty string"
@@ -388,12 +388,12 @@ function http.Response:set_header(key: string, val: string):  string
   return ""
 end
 
---- #### http.Response:set_cookie
+--- #### nttp.Response:set_cookie
 --[[-
 Sets a cookie to be sent with the response
 
 ```:lang:
-app:get(nil, "/", function(self: *http.Server)
+app:get(nil, "/", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
   local err = resp:set_cookie({
     name = "name",
@@ -407,7 +407,7 @@ end)
 ```
 -]]
 ---`
-function http.Response:set_cookie(c: http.Cookie):  string
+function nttp.Response:set_cookie(c: nttp.Cookie):  string
 ---`
   if c.name == "" then
     return "A cookie value cannot have an empty string for its name"
@@ -419,22 +419,22 @@ function http.Response:set_cookie(c: http.Cookie):  string
   return ""
 end
 
-local http.Server <forwarddecl> = @record{}
+local nttp.Server <forwarddecl> = @record{}
 
---- #### http.Session
+--- #### nttp.Session
 ---`
-local http.Session = @record{
+local nttp.Session = @record{
   vals: hashmap(string, string),
   send: boolean
 }
 ---`
 
---- #### http.Session:set_val
+--- #### nttp.Session:set_val
 --[[-
 This function is used to set values that will be stored in the sesssion
 
 ```:lang:
-app:get(nil, "/", function(self: *http.Server)
+app:get(nil, "/", function(self: *nttp.Server)
   self.session:set_val("name", "james")
   self.session:set_val("age", "10")
   return self:text(200, "ok")
@@ -442,7 +442,7 @@ end)
 ```
 -]]
 ---`
-function http.Session:set_val(name: string, val: string): string
+function nttp.Session:set_val(name: string, val: string): string
 ---`
   if name == "" then
     return "A session value cannot have an empty string for its name"
@@ -452,26 +452,26 @@ function http.Session:set_val(name: string, val: string): string
   return ""
 end
 
---- #### http.Session:get_val(name: string): string
+--- #### nttp.Session:get_val(name: string): string
 --[[-
 This function is used to get values that are stored in the sesssion
 
 ```:lang:
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local name = self.session:get_val("name")
   local age = self.session:get_val("age")
   return self:text(200, "ok")
 end)
 ```
 -]]
-function http.Session:get_val(name: string): string
+function nttp.Session:get_val(name: string): string
   if not self.vals:has(name) then return "" end
   return self.vals[name]
 end
 
---- #### http.Request
+--- #### nttp.Request
 ---`
-local http.Request = @record{
+local nttp.Request = @record{
   method: string,
   version: string,
   headers: hashmap(string, string),
@@ -481,18 +481,18 @@ local http.Request = @record{
 }
 ---`
 
---- #### http.Request:get_header
+--- #### nttp.Request:get_header
 --[[-
 Gets a header from the request object
 
 ```:lang:
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local name = self.req:get_header("name")
   return self:text(200, "ok")
 end)
 -]]
 ---`
-function http.Request:get_header(name: string): string
+function nttp.Request:get_header(name: string): string
 ---`
   if not self.headers:has(name) then
     return ""
@@ -500,18 +500,18 @@ function http.Request:get_header(name: string): string
   return self.headers[name]
 end
 
---- #### http.Request:get_cookie
+--- #### nttp.Request:get_cookie
 --[[-
 Gets a cookie from the request object
 
 ```:lang:
-app:get(nil, "/test", function(self: *http.Server)
+app:get(nil, "/test", function(self: *nttp.Server)
   local name = self.req:get_cookie("name")
   return self:text(200, "ok")
 end)
 -]]
 ---`
-function http.Request:get_cookie(name: string): string
+function nttp.Request:get_cookie(name: string): string
 ---`
   local cookies = self:get_header("Cookie") .. ";"
   for _, cookie_span in cookies:gmatch("([%w_]+)=([^;]+);") do
@@ -522,57 +522,57 @@ function http.Request:get_cookie(name: string): string
   return ""
 end
 
---- #### http.Config
+--- #### nttp.Config
 --[[-
-Defaults are only set if the server is instantiated with [http.Server.new](#httpservernew)
+Defaults are only set if the server is instantiated with [nttp.Server.new](#httpservernew)
 - port: The port you want the server to run on, default is `8080`
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
 - session_name: Name of cookie used to store the session, default is `http_session`
-- log: This determines whether the server will log the request information to the console, default is [http.TriBool](#httptribool).NULL
+- log: This determines whether the server will log the request information to the console, default is [nttp.TriBool](#httptribool).NULL
 -]]
 ---`
-local http.Config = @record{
+local nttp.Config = @record{
   port: uinteger,
   bind_host: string,
   secret: string,
   session_name: string,
-  log: http.TriBool
+  log: nttp.TriBool
 }
 ---`
 
---- #### http.BeforeFn
---- Type Alias describing the function signature of before functions called in the [http.Server:before_filter](#httpserverbefore_filter)
+--- #### nttp.BeforeFn
+--- Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#httpserverbefore_filter)
 ---`
-local http.BeforeFn = @function(self: *http.Server): (boolean, http.Response)
+local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
 ---`
 
---- #### http.ActionFn
---- Type Alias describing the function signature of action functions called on a [http.Server:#|method|#](#httpservermethod)
+--- #### nttp.ActionFn
+--- Type Alias describing the function signature of action functions called on a [nttp.Server:#|method|#](#httpservermethod)
 ---`
-local http.ActionFn = @function(self: *http.Server): http.Response
+local nttp.ActionFn = @function(self: *nttp.Server): nttp.Response
 ---`
 
 local Route = @record{
-  methods: hashmap(string, http.ActionFn)
+  methods: hashmap(string, nttp.ActionFn)
 }
 
---- #### http.Server
+--- #### nttp.Server
 ---`
-http.Server = @record{
-  config: http.Config,
+nttp.Server = @record{
+  config: nttp.Config,
   static_dir: string,
   static_name: string,
   static_headers: hashmap(string, string),
   routes: hashmap(string, Route),
   var_routes: hashmap(string, Route),
   named_routes: hashmap(string, string),
-  req: http.Request,
-  default_route: http.ActionFn,
-  handle_404: http.ActionFn,
-  session: http.Session,
-  before_funcs: sequence(http.BeforeFn),
-  write: function(self: *http.Server, s: string): string,
+  req: nttp.Request,
+  default_route: nttp.ActionFn,
+  handle_404: nttp.ActionFn,
+  session: nttp.Session,
+  before_funcs: sequence(nttp.BeforeFn),
+  write: function(self: *nttp.Server, s: string): string,
   written: boolean,
   _fd: integer
 }
@@ -662,22 +662,22 @@ local mime_types = map!(string, string, {
 })
 ---`
 
---- #### http.Server:set_static
+--- #### nttp.Server:set_static
 --[[-
 This sets the directory when static files will be read from as well as the name that will be used for routing
 
 ```:lang:
-local app = http.Server.new()
+local app = nttp.Server.new()
 
 app:set_static("./static", "static")
 
-app:get(nil, "/", function(self: *http.Server): http.Response
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
   return self:html(200, '<link rel="stylesheet" href="/static/test.css" />')
 end)
 ```
 -]]
 ---`
-function http.Server:set_static(dir: string, name: string)
+function nttp.Server:set_static(dir: string, name: string)
 ---`
   assert(dir ~= "", "Static directory path can not be an empty string")
   assert(name ~= "", "Static directory name can not be an empty string")
@@ -685,13 +685,13 @@ function http.Server:set_static(dir: string, name: string)
   self.static_name = name
 end
 
---- #### http.Server:before_filter
+--- #### nttp.Server:before_filter
 --[[-
 This adds functions that will run before every request
-The [http.BeforeFn](#httpbeforefn) returns a boolean and a [http.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
+The [nttp.BeforeFn](#httpbeforefn) returns a boolean and a [nttp.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
 
 ```:lang:
-app:before_filter(function(self: *http.Server): (boolean, http.Response)
+app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
   self.session:set_val("val", "test")
   if self.req.current_path ~= self:url_for("test") and self.session:get_val("val") == "test" then
     return true, self:redirect("/test")
@@ -701,37 +701,37 @@ end)
 ```
 -]]
 ---`
-function http.Server:before_filter(fn: http.BeforeFn)
+function nttp.Server:before_filter(fn: nttp.BeforeFn)
 ---`
   self.before_funcs:push(fn)
 end
 
---- #### Supported HTTP Methods
+--- #### Supported nttp Methods
 ---`
 ## local methods = {"get", "post", "put", "patch", "delete"}
 ---`
 
 ## for _, method in ipairs(methods) do
 
---- #### http.Server:#|method|#
+--- #### nttp.Server:#|method|#
 --[[-
-These are routing functions where `method` could be one of the [supported http methods](#supported-http-methods)
+These are routing functions where `method` could be one of the [supported nttp methods](#supported-nttp-methods)
 
 ```:lang:
-local http = require "path.to.http"
+local nttp = require "path.to.nttp"
 
-local app = http.Server.new()
+local app = nttp.Server.new()
 
-app:get(nil, "/", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "hello, world")
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "hello, world")
 end)
 ```
-- name: This can be provided to set a name for a route, usually to be used with the [http.Server:url_for](#httpserverurlfor) function
+- name: This can be provided to set a name for a route, usually to be used with the [nttp.Server:url_for](#httpserverurlfor) function
 - route: The actual route that will be called
 - action: The function to be called when the route is hit
 -]]
 ---`
-function http.Server:#|method|#(name: facultative(string), route: string, action: http.ActionFn)
+function nttp.Server:#|method|#(name: facultative(string), route: string, action: nttp.ActionFn)
 ---`
   assert(not self.routes:has(route) or not self.routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
   assert(not self.var_routes:has(route) or not self.var_routes[route].methods:has(#[method:upper()]#), ("A route can not have it's methods redefined: `%s`"):format(route))
@@ -751,24 +751,24 @@ function http.Server:#|method|#(name: facultative(string), route: string, action
 end
 ## end
 
---- #### http.Server.UrlForOpts
---- Used to alter the returned url from [http.Server:url_for](#httpserverurl_for)
+--- #### nttp.Server.UrlForOpts
+--- Used to alter the returned url from [nttp.Server:url_for](#httpserverurl_for)
 ---`
-local http.Server.UrlForOpts = @record{
+local nttp.Server.UrlForOpts = @record{
   route_params: hashmap(string, string),
   query_params: hashmap(string, string)
 }
 ---`
 
---- #### http.Server:url_for
+--- #### nttp.Server:url_for
 --[[-
 This function returns the route of the relevant name
-`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [http.Server.UrlForOpts](#httpserverurlforopts)
+`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [nttp.Server.UrlForOpts](#httpserverurlforopts)
 
 Examples:
 
 ```:lang:
-app:get("get_params", "/get_params", function(self: *http.Server)
+app:get("get_params", "/get_params", function(self: *nttp.Server)
   local route_params: hashmap(string, string)
   route_params["id"]   = "10"
   route_params["name"] = "james"
@@ -783,25 +783,25 @@ app:get("get_params", "/get_params", function(self: *http.Server)
   })))
 end)
 
-app:get("params", "/params/:id/:name/*", function(self: *http.Server)
+app:get("params", "/params/:id/:name/*", function(self: *nttp.Server)
   return self:text(200, self.req.params["id"] .. " " .. self.req.params["name"] .. " " .. self.req.params["*"])
 end)
 -- Should return "/params/10/james/splat?id=10&name=james"
 ```
 
 ```:lang:
-app:get(nil, "/", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, self:url_for("test"))
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, self:url_for("test"))
 end)
 -- will return "/really-long-name"
 
-app:get("test", "/really-long-name", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "hello, world")
+app:get("test", "/really-long-name", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "hello, world")
 end)
 ```
 -]]
 ---`
-function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string
+function nttp.Server:url_for(name: string, opts: nttp.Server.UrlForOpts): string
 ---`
   if self.named_routes:has(name) then
     local sb: stringbuilder
@@ -825,10 +825,10 @@ function http.Server:url_for(name: string, opts: http.Server.UrlForOpts): string
   return ""
 end
 
---- #### http.Server:html
---- helper function for commonly returned [http.Response](#httpresponse) to specify the response is `html`
+--- #### nttp.Server:html
+--- helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `html`
 ---`
-function http.Server:html(code: http.Status, html: string): http.Response
+function nttp.Server:html(code: nttp.Status, html: string): nttp.Response
 ---`
   return {
     body = html,
@@ -837,13 +837,13 @@ function http.Server:html(code: http.Status, html: string): http.Response
   }
 end
 
---- #### http.Server:json
+--- #### nttp.Server:json
 --[[-
-helper function for commonly returned [http.Response](#httpresponse) to specify the response is `json`
+helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `json`
 -`body`: Can either be a string or a json serializable object
 -]]
 ---`
-function http.Server:json(code: http.Status, body: overload(string, auto)): http.Response
+function nttp.Server:json(code: nttp.Status, body: overload(string, auto)): nttp.Response
 ---`
   ## if body.type.is_string then
     local val = body
@@ -858,10 +858,10 @@ function http.Server:json(code: http.Status, body: overload(string, auto)): http
   }
 end
 
---- #### http.Server:text
---- helper function for commonly returned [http.Response](#httpresponse) to specify the response is `text`
+--- #### nttp.Server:text
+--- helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `text`
 ---`
-function http.Server:text(code: http.Status, text: string): http.Response
+function nttp.Server:text(code: nttp.Status, text: string): nttp.Response
 ---`
   return {
     body = text,
@@ -870,59 +870,59 @@ function http.Server:text(code: http.Status, text: string): http.Response
   }
 end
 
---- #### http.Server:redirect
+--- #### nttp.Server:redirect
 --[[-
 helper function to specify that the return should be a redirect and redirect to `path`
 
 ```:lang:
-app:get(nil, "/", function(self: *http.Server): http.Response
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
   return self:redirect(self:url_for("actual"))
 end)
 
-app:get("actual", "/actual-path", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "ok")
+app:get("actual", "/actual-path", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "ok")
 end)
 ```
 -]]
 ---`
-function http.Server:redirect(path: string): http.Response
+function nttp.Server:redirect(path: string): nttp.Response
 ---`
   local headers: hashmap(string, string)
   headers["Location"] = path
   return {
-    status = http.Status.Found,
+    status = nttp.Status.Found,
     headers = headers,
     body = self.req.body
   }
 end
 
---- #### http.Server:error
---- Helper function that returns a http text response with a 500 error code and message "Internal Server Error"
+--- #### nttp.Server:error
+--- Helper function that returns a nttp text response with a 500 error code and message "Internal Server Error"
 ---`
-function http.Server:error(): http.Response
+function nttp.Server:error(): nttp.Response
 ---`
-  return self:text(http.Status.InternalServerError, "Internal Server Error")
+  return self:text(nttp.Status.InternalServerError, "Internal Server Error")
 end
 
---- #### http.csrf
+--- #### nttp.csrf
 ---`
-local http.csrf = @record{}
+local nttp.csrf = @record{}
 ---`
 
---- #### http.csrf.generate_token
+--- #### nttp.csrf.generate_token
 --[[-
 This function generates a csrf token that is stored in your session and returns it as a value
 If a token already exists, it returns that and doesn't create a new one
 
 ```:lang:
-app:before_filter(function(self: *http.Server): (boolean, http.Response)
-  local token = http.csrf.generate_token(self)
+app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
+  local token = nttp.csrf.generate_token(self)
   return false, {}
 end)
 ```
 -]]
 ---`
-function http.csrf.generate_token(self: *http.Server): string
+function nttp.csrf.generate_token(self: *nttp.Server): string
 ---`
   local token = self.session:get_val("csrf_token")
   if token ~= "" then
@@ -939,13 +939,13 @@ function http.csrf.generate_token(self: *http.Server): string
   return val
 end
 
---- #### http.csrf.validate_token
+--- #### nttp.csrf.validate_token
 --[[-
 This function checks that there is a csrf token in your session and that the token passed in your request params matches it
 
 ```:lang:
-app:post(nil, "/test", function(self: *http.Server)
-  if not http.csrf.validate_token(self) then
+app:post(nil, "/test", function(self: *nttp.Server)
+  if not nttp.csrf.validate_token(self) then
     return self:text(403, "forbidden")
   end
   return self:text(200, "ok")
@@ -953,7 +953,7 @@ end)
 ```
 -]]
 ---`
-function http.csrf.validate_token(self: *http.Server): boolean
+function nttp.csrf.validate_token(self: *nttp.Server): boolean
 ---`
   if self.session:get_val("csrf_token") == "" then
     return false
@@ -964,7 +964,7 @@ function http.csrf.validate_token(self: *http.Server): boolean
   return true
 end
 
-local function color_status(status: http.Status): string
+local function color_status(status: nttp.Status): string
   local color = AnsiColor.new(("%d"):format(status))
   if status >= 200 and status < 300 then
     color:Green()
@@ -983,7 +983,7 @@ local function escape_special(s: string)
   return s
 end
 
-local function handle_request(buffer_str: string, self: *http.Server): http.Response
+local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Response
   local method: string, uri: string, version: string
   local request_headers: hashmap(string, string)
   local i = 0
@@ -1014,7 +1014,7 @@ local function handle_request(buffer_str: string, self: *http.Server): http.Resp
   if param_match then
     uri = param_seq[1]
     for _, param in param_seq[2]:gmatch("([^&=?]+)=([^&=?]+)") do
-      self.req.params[param[0]] = http.utils.url_unescape(param[1])
+      self.req.params[param[0]] = nttp.utils.url_unescape(param[1])
     end
   end
   -- request body params
@@ -1027,7 +1027,7 @@ local function handle_request(buffer_str: string, self: *http.Server): http.Resp
         local body_str = body_seq[1] .. "&"
         for _, params in body_str:gmatch("([^&]*)&") do
           for _, param in params[0]:gmatch("(.*)=(.*)") do
-            self.req.params[param[0]] = http.utils.url_unescape(param[1])
+            self.req.params[param[0]] = nttp.utils.url_unescape(param[1])
           end
         end
       elseif self.req.headers["Content-Type"]:match("multipart/form%-data") then
@@ -1054,26 +1054,26 @@ local function handle_request(buffer_str: string, self: *http.Server): http.Resp
   local cookie, err = self.req:get_cookie(self.config.session_name)
   if cookie ~= "" then
     local match, match_seq = cookie:match("(.+)///(.+)")
-    local signature = http.utils.b64_decode(match_seq[2])
-    if signature == http.utils.sign(self.config.secret, match_seq[1]) then
-    local decoded_vals = http.utils.b64_decode(match_seq[1])
+    local signature = nttp.utils.b64_decode(match_seq[2])
+    if signature == nttp.utils.sign(self.config.secret, match_seq[1]) then
+    local decoded_vals = nttp.utils.b64_decode(match_seq[1])
       for _, vals in decoded_vals:gmatch("([%w_]+)=([^;]+);") do
         self.session.vals[vals[0]] = vals[1]
       end
     end 
   end
 
-  local resp: http.Response
+  local resp: nttp.Response
 
-  local function send_session(self: *http.Server, resp: *http.Response)
+  local function send_session(self: *nttp.Server, resp: *nttp.Response)
     if self.session.send then
       local sb: stringbuilder
       for k, v in pairs(self.session.vals) do
         sb:write(("%s=%s; "):format(k, v))
       end
       sb:rollback(1)
-      local session_map = http.utils.b64_encode(sb:promote()) 
-      local val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+      local session_map = nttp.utils.b64_encode(sb:promote()) 
+      local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map)) 
       resp:set_cookie({
         name = self.config.session_name,
         val = val
@@ -1156,13 +1156,13 @@ local function handle_request(buffer_str: string, self: *http.Server): http.Resp
   return resp
 end
 
---- #### http.Server:serve
+--- #### nttp.Server:serve
 --[[-
 This function starts the server
 It should always be the last line of your file
 -]]
 ---`
-function http.Server:serve()
+function nttp.Server:serve()
 ---`
   local listen_fd: integer, new_fd: integer
   local server_addr: sockaddr_in, client_addr: sockaddr_in
@@ -1211,7 +1211,7 @@ function http.Server:serve()
     fds[i].fd = -1
   end
 
-  print("Server started on http://localhost:" .. self.config.port)
+  print("Server started on nttp://localhost:" .. self.config.port)
 
   while true do
     local poll_count = poll(fds, nfds, -1)
@@ -1292,9 +1292,9 @@ function http.Server:serve()
   close(listen_fd)
 end
 
---- #### http.MockRequestOpts
+--- #### nttp.MockRequestOpts
 ---`
-local http.MockRequestOpts = @record{
+local nttp.MockRequestOpts = @record{
   method: string,
   params: hashmap(string, string),
   headers: hashmap(string, string),
@@ -1303,10 +1303,10 @@ local http.MockRequestOpts = @record{
 }
 ---`
 
---- #### http.Server:mock_request
+--- #### nttp.Server:mock_request
 --- This function is meant for testing and helps you simulate requests to your server
 ---`
-function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (http.Response, string)
+function nttp.Server:mock_request(path: string, opts: nttp.MockRequestOpts): (nttp.Response, string)
 ---`
   local sb: stringbuilder
   local param_str: string
@@ -1328,7 +1328,7 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
   else
     sb:writef(" %s", path)
   end
-  sb:write(" HTTP/1.1\r\n")
+  sb:write(" nttp/1.1\r\n")
   for k, v in pairs(opts.headers) do
     sb:writef("%s: %s\r\n", k, v)
   end
@@ -1356,8 +1356,8 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
       session_sb:write(("%s=%s; "):format(k, v))
     end
     session_sb:rollback(1)
-    local session_map = http.utils.b64_encode(session_sb:promote()) 
-    local val = session_map .. "///" .. http.utils.b64_encode(http.utils.sign(self.config.secret, session_map)) 
+    local session_map = nttp.utils.b64_encode(session_sb:promote()) 
+    local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map)) 
     sb:writef("%s=%s;", self.config.session_name, val)
     if not next(opts.cookies) then
       sb:rollback(1)
@@ -1377,29 +1377,29 @@ function http.Server:mock_request(path: string, opts: http.MockRequestOpts): (ht
   return handle_request(req_str, self), req_str
 end
 
---- #### http.Server.new
+--- #### nttp.Server.new
 --[[-
-This function returns a new [http.Server](#httpserver) instance that will be used throughout your app
+This function returns a new [nttp.Server](#httpserver) instance that will be used throughout your app
 
-The `config` param can be ommited and default values will be used, it is of type [http.Config](#httpconfig)
+The `config` param can be ommited and default values will be used, it is of type [nttp.Config](#httpconfig)
 
 ```:lang:
-local http = require "path.to.http"
+local nttp = require "path.to.nttp"
 
-local app = http.new({
+local app = nttp.new({
   secret = os.getenv("SECRET"),
   session_name = "my_app"
 })
 ```
 -]]
 ---`
-function http.Server.new(config: http.Config): http.Server
+function nttp.Server.new(config: nttp.Config): nttp.Server
 ---`
   config.port = config.port == 0 and 8080 or config.port
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
   config.session_name = config.session_name == "" and "http_session" or config.session_name
   config.secret = config.secret == "" and "please-change-me" or config.secret
-  local s: http.Server
+  local s: nttp.Server
   s.config = config
   s.static_dir = "./static"
   s.static_name = "static"
@@ -1409,7 +1409,7 @@ To write to the client, the `write` method is called
 Below is the default implementation
 -]]
 ---`
-  s.write = function(self:*http.Server, s: string): string
+  s.write = function(self:*nttp.Server, s: string): string
     local written_bytes = send(self._fd, (@cstring)(s), #s, MSG_NOSIGNAL)
     if written_bytes == -1 then
       local err_msg = C.strerror(C.errno)
@@ -1424,7 +1424,7 @@ When a request does not match any of the routes you've defined, the `default_rou
 Below is the default implementation
 -]]
 ---`
-  s.default_route = function(self: *http.Server)
+  s.default_route = function(self: *nttp.Server)
     if self.req.current_path:match("./$") then
       local stripped = self.req.current_path:sub(1, #self.req.current_path - 1)
       return self:redirect(stripped)
@@ -1439,11 +1439,11 @@ In the default `default_route`, the method `handle_404` is called when the path 
 Below is the default implementation
 -]]
 ---`
-  s.handle_404 = function(self: *http.Server)
-    return self:text(http.Status.NotFound, "Page or resource not found")
+  s.handle_404 = function(self: *nttp.Server)
+    return self:text(nttp.Status.NotFound, "Page or resource not found")
   end
 ---`
   return s
 end
 
-return http
+return nttp

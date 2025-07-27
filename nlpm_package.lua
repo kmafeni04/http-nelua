@@ -43,6 +43,6 @@ return {
   },
   scripts = {
     test = "nelua --cc=tcc test.nelua",
-    docs = "nelua http-doc.nelua",
+    docs = "nelua nttp-doc.nelua",
   },
 }

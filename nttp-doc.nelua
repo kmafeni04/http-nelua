@@ -13,10 +13,9 @@ local gen = ssdg.new{
 local subs: hashmap(string, string)
 subs["lang"] = gen.conf.lang
 
-gen:add([=[
-# http.nelua
+gen:add([=[# nttp.nelua
 
-A HTTP 1.1 webserver library for nelua
+A http 1.1 webserver library for nelua
 
 ## Features
 - Routing
@@ -38,8 +37,8 @@ A HTTP 1.1 webserver library for nelua
 Add to your nlpm package dependencies
 ```:lang:
 {
-  name = "http-nelua",
-  repo = "https://github.com/kmafeni04/http-nelua",
+  name = "nttp-nelua",
+  repo = "https://github.com/kmafeni04/nttp-nelua",
   version = "COMMIT-HASH-OR-TAG",
 },
 ```
@@ -48,12 +47,12 @@ Run `nlpm install`
 ## Quick start
 
 ```:lang:
-local http = require "http"
+local nttp = require "nttp"
 
-local app = http.Server.new()
+local app = nttp.Server.new()
 
-app:get(nil, "/", function(self: *http.Server): http.Response
-  return self:text(http.Status.OK, "hello, world")
+app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+  return self:text(nttp.Status.OK, "hello, world")
 end)
 
 app:serve()
@@ -63,7 +62,7 @@ app:serve()
 
 ]=], {subs = subs})
 
-gen:add_file("./http.nelua", { subs = subs })
+gen:add_file("./nttp.nelua", { subs = subs })
 gen:add_file("./libs/send_request.nelua", { subs = subs })
 gen:add_file("./libs/utils.nelua", { subs = subs })
 gen:add_file("./libs/mail.nelua", { subs = subs })
