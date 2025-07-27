@@ -904,7 +904,12 @@ function utils.trim_wspace(s: string)
 ```
 
 ---
-  
+
+## Extras
+Extra libraries attached to this
+- [datastar-sdk](https://github.com/kmafeni04/nttp-datastar-sdk): SDK for [datastar.js](https://data-star.dev)  
+- [mail](https://github.com/kmafeni04/nttp-mail): SMTP library
+
 ## Acknowledgement
 
 This library is heavliy inspired by the [lapis](https://github.com/leafo/lapis) and a bit by the [echo](https://github.com/labstack/echo) web frameworks
