@@ -204,7 +204,7 @@ This function converts your response into a nttp request string
 ```lua
 app:get(nil, "/test", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
-  print(resp:tostring()) -- "http/1.1 200 OK\r\nServer: nttp-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  print(resp:tostring()) -- "http/1.1 200 OK\r\nServer: nttp\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
   return resp
 end)
 ```
@@ -333,12 +333,12 @@ function nttp.Request:get_cookie(name: string): string
 
 #### nttp.Config
 
-Defaults are only set if the server is instantiated with [nttp.Server.new](#httpservernew)
+Defaults are only set if the server is instantiated with [nttp.Server.new](#nttpservernew)
 - port: The port you want the server to run on, default is `8080`
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
-- session_name: Name of cookie used to store the session, default is `http_session`
-- log: This determines whether the server will log the request information to the console, default is [nttp.TriBool](#httptribool).NULL
+- session_name: Name of cookie used to store the session, default is `nttp_session`
+- log: This determines whether the server will log the request information to the console, default is [nttp.TriBool](#nttptribool).NULL
 
 ```lua
 local nttp.Config = @record{
@@ -352,7 +352,7 @@ local nttp.Config = @record{
 
 #### nttp.BeforeFn
 
-Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#httpserverbefore_filter)
+Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#nttpserverbefore_filter)
 
 ```lua
 local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
@@ -360,7 +360,7 @@ local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
 
 #### nttp.ActionFn
 
-Type Alias describing the function signature of action functions called on a [nttp.Server:#|method|#](#httpservermethod)
+Type Alias describing the function signature of action functions called on a [nttp.Server:#|method|#](#nttpservermethod)
 
 ```lua
 local nttp.ActionFn = @function(self: *nttp.Server): nttp.Response
@@ -495,7 +495,7 @@ function nttp.Server:set_static(dir: string, name: string)
 #### nttp.Server:before_filter
 
 This adds functions that will run before every request
-The [nttp.BeforeFn](#httpbeforefn) returns a boolean and a [nttp.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
+The [nttp.BeforeFn](#nttpbeforefn) returns a boolean and a [nttp.Response](#nttpresponse), if the boolean is `true`, it will return the response instead of the hit route
 
 ```lua
 app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
@@ -511,7 +511,7 @@ end)
 function nttp.Server:before_filter(fn: nttp.BeforeFn)
 ```
 
-#### Supported nttp Methods
+#### Supported http Methods
 
 ```lua
 ## local methods = {"get", "post", "put", "patch", "delete"}
@@ -519,7 +519,7 @@ function nttp.Server:before_filter(fn: nttp.BeforeFn)
 
 #### nttp.Server:#|method|#
 
-These are routing functions where `method` could be one of the [supported nttp methods](#supported-nttp-methods)
+These are routing functions where `method` could be one of the [supported http methods](#supported-http-methods)
 
 ```lua
 local nttp = require "path.to.nttp"
@@ -530,7 +530,7 @@ app:get(nil, "/", function(self: *nttp.Server): nttp.Response
   return self:text(nttp.Status.OK, "hello, world")
 end)
 ```
-- name: This can be provided to set a name for a route, usually to be used with the [nttp.Server:url_for](#httpserverurlfor) function
+- name: This can be provided to set a name for a route, usually to be used with the [nttp.Server:url_for](#nttpserverurlfor) function
 - route: The actual route that will be called
 - action: The function to be called when the route is hit
 
@@ -540,7 +540,7 @@ function nttp.Server:#|method|#(name: facultative(string), route: string, action
 
 #### nttp.Server.UrlForOpts
 
-Used to alter the returned url from [nttp.Server:url_for](#httpserverurl_for)
+Used to alter the returned url from [nttp.Server:url_for](#nttpserverurl_for)
 
 ```lua
 local nttp.Server.UrlForOpts = @record{
@@ -552,7 +552,7 @@ local nttp.Server.UrlForOpts = @record{
 #### nttp.Server:url_for
 
 This function returns the route of the relevant name
-`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [nttp.Server.UrlForOpts](#httpserverurlforopts)
+`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [nttp.Server.UrlForOpts](#nttpserverurlforopts)
 
 Examples:
 
@@ -595,7 +595,7 @@ function nttp.Server:url_for(name: string, opts: nttp.Server.UrlForOpts): string
 
 #### nttp.Server:html
 
-helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `html`
+helper function for commonly returned [nttp.Response](#nttpresponse) to specify the response is `html`
 
 ```lua
 function nttp.Server:html(code: nttp.Status, html: string): nttp.Response
@@ -603,7 +603,7 @@ function nttp.Server:html(code: nttp.Status, html: string): nttp.Response
 
 #### nttp.Server:json
 
-helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `json`
+helper function for commonly returned [nttp.Response](#nttpresponse) to specify the response is `json`
 -`body`: Can either be a string or a json serializable object
 
 ```lua
@@ -612,7 +612,7 @@ function nttp.Server:json(code: nttp.Status, body: overload(string, auto)): nttp
 
 #### nttp.Server:text
 
-helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `text`
+helper function for commonly returned [nttp.Response](#nttpresponse) to specify the response is `text`
 
 ```lua
 function nttp.Server:text(code: nttp.Status, text: string): nttp.Response
@@ -714,9 +714,9 @@ function nttp.Server:mock_request(path: string, opts: nttp.MockRequestOpts): (nt
 
 #### nttp.Server.new
 
-This function returns a new [nttp.Server](#httpserver) instance that will be used throughout your app
+This function returns a new [nttp.Server](#nttpserver) instance that will be used throughout your app
 
-The `config` param can be ommited and default values will be used, it is of type [nttp.Config](#httpconfig)
+The `config` param can be ommited and default values will be used, it is of type [nttp.Config](#nttpconfig)
 
 ```lua
 local nttp = require "path.to.nttp"

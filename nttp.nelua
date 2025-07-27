@@ -299,7 +299,7 @@ This function converts your response into a nttp request string
 ```:lang:
 app:get(nil, "/test", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
-  print(resp:tostring()) -- "http/1.1 200 OK\r\nServer: nttp-nelua\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  print(resp:tostring()) -- "http/1.1 200 OK\r\nServer: nttp\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
   return resp
 end)
 ```
@@ -314,7 +314,7 @@ function nttp.Response:tostring(): string
   local sb: stringbuilder
   sb:write(("http/1.1 %s %s\r\n"):format(self.status, status_msg))
   if not (self.headers:has("Server") and self.headers["Server"] == "") then
-    sb:write("Server: nttp-nelua\r\n")
+    sb:write("Server: nttp\r\n")
   end
   if not (self.headers:has("Date") and self.headers["Date"] == "") then
     local formatted_date = os.date("!%a, %d %b %Y %H:%M:%S GMT")
@@ -518,12 +518,12 @@ end
 
 --- #### nttp.Config
 --[[-
-Defaults are only set if the server is instantiated with [nttp.Server.new](#httpservernew)
+Defaults are only set if the server is instantiated with [nttp.Server.new](#nttpservernew)
 - port: The port you want the server to run on, default is `8080`
 - bind_host: The interface the server will bind to, default is `0.0.0.0`
 - secret: This is used to sign your session, default is `please-change-me`
-- session_name: Name of cookie used to store the session, default is `http_session`
-- log: This determines whether the server will log the request information to the console, default is [nttp.TriBool](#httptribool).NULL
+- session_name: Name of cookie used to store the session, default is `nttp_session`
+- log: This determines whether the server will log the request information to the console, default is [nttp.TriBool](#nttptribool).NULL
 -]]
 ---`
 local nttp.Config = @record{
@@ -536,13 +536,13 @@ local nttp.Config = @record{
 ---`
 
 --- #### nttp.BeforeFn
---- Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#httpserverbefore_filter)
+--- Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#nttpserverbefore_filter)
 ---`
 local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
 ---`
 
 --- #### nttp.ActionFn
---- Type Alias describing the function signature of action functions called on a [nttp.Server:#|method|#](#httpservermethod)
+--- Type Alias describing the function signature of action functions called on a [nttp.Server:#|method|#](#nttpservermethod)
 ---`
 local nttp.ActionFn = @function(self: *nttp.Server): nttp.Response
 ---`
@@ -682,7 +682,7 @@ end
 --- #### nttp.Server:before_filter
 --[[-
 This adds functions that will run before every request
-The [nttp.BeforeFn](#httpbeforefn) returns a boolean and a [nttp.Response](#httpresponse), if the boolean is `true`, it will return the response instead of the hit route
+The [nttp.BeforeFn](#nttpbeforefn) returns a boolean and a [nttp.Response](#nttpresponse), if the boolean is `true`, it will return the response instead of the hit route
 
 ```:lang:
 app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
@@ -700,7 +700,7 @@ function nttp.Server:before_filter(fn: nttp.BeforeFn)
   self.before_funcs:push(fn)
 end
 
---- #### Supported nttp Methods
+--- #### Supported http Methods
 ---`
 ## local methods = {"get", "post", "put", "patch", "delete"}
 ---`
@@ -709,7 +709,7 @@ end
 
 --- #### nttp.Server:#|method|#
 --[[-
-These are routing functions where `method` could be one of the [supported nttp methods](#supported-nttp-methods)
+These are routing functions where `method` could be one of the [supported http methods](#supported-http-methods)
 
 ```:lang:
 local nttp = require "path.to.nttp"
@@ -720,7 +720,7 @@ app:get(nil, "/", function(self: *nttp.Server): nttp.Response
   return self:text(nttp.Status.OK, "hello, world")
 end)
 ```
-- name: This can be provided to set a name for a route, usually to be used with the [nttp.Server:url_for](#httpserverurlfor) function
+- name: This can be provided to set a name for a route, usually to be used with the [nttp.Server:url_for](#nttpserverurlfor) function
 - route: The actual route that will be called
 - action: The function to be called when the route is hit
 -]]
@@ -746,7 +746,7 @@ end
 ## end
 
 --- #### nttp.Server.UrlForOpts
---- Used to alter the returned url from [nttp.Server:url_for](#httpserverurl_for)
+--- Used to alter the returned url from [nttp.Server:url_for](#nttpserverurl_for)
 ---`
 local nttp.Server.UrlForOpts = @record{
   route_params: hashmap(string, string),
@@ -757,7 +757,7 @@ local nttp.Server.UrlForOpts = @record{
 --- #### nttp.Server:url_for
 --[[-
 This function returns the route of the relevant name
-`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [nttp.Server.UrlForOpts](#httpserverurlforopts)
+`opts` can be passed to the function to help build a url if it contains route params or you would like to add query params, see [nttp.Server.UrlForOpts](#nttpserverurlforopts)
 
 Examples:
 
@@ -820,7 +820,7 @@ function nttp.Server:url_for(name: string, opts: nttp.Server.UrlForOpts): string
 end
 
 --- #### nttp.Server:html
---- helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `html`
+--- helper function for commonly returned [nttp.Response](#nttpresponse) to specify the response is `html`
 ---`
 function nttp.Server:html(code: nttp.Status, html: string): nttp.Response
 ---`
@@ -833,7 +833,7 @@ end
 
 --- #### nttp.Server:json
 --[[-
-helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `json`
+helper function for commonly returned [nttp.Response](#nttpresponse) to specify the response is `json`
 -`body`: Can either be a string or a json serializable object
 -]]
 ---`
@@ -853,7 +853,7 @@ function nttp.Server:json(code: nttp.Status, body: overload(string, auto)): nttp
 end
 
 --- #### nttp.Server:text
---- helper function for commonly returned [nttp.Response](#httpresponse) to specify the response is `text`
+--- helper function for commonly returned [nttp.Response](#nttpresponse) to specify the response is `text`
 ---`
 function nttp.Server:text(code: nttp.Status, text: string): nttp.Response
 ---`
@@ -1373,9 +1373,9 @@ end
 
 --- #### nttp.Server.new
 --[[-
-This function returns a new [nttp.Server](#httpserver) instance that will be used throughout your app
+This function returns a new [nttp.Server](#nttpserver) instance that will be used throughout your app
 
-The `config` param can be ommited and default values will be used, it is of type [nttp.Config](#httpconfig)
+The `config` param can be ommited and default values will be used, it is of type [nttp.Config](#nttpconfig)
 
 ```:lang:
 local nttp = require "path.to.nttp"
@@ -1391,7 +1391,7 @@ function nttp.Server.new(config: nttp.Config): nttp.Server
 ---`
   config.port = config.port == 0 and 8080 or config.port
   config.bind_host = config.bind_host == "" and "0.0.0.0" or config.bind_host
-  config.session_name = config.session_name == "" and "http_session" or config.session_name
+  config.session_name = config.session_name == "" and "nttp_session" or config.session_name
   config.secret = config.secret == "" and "please-change-me" or config.secret
   local s: nttp.Server
   s.config = config
