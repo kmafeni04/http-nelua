@@ -1205,7 +1205,7 @@ function nttp.Server:serve()
     fds[i].fd = -1
   end
 
-  print("Server started on nttp://localhost:" .. self.config.port)
+  print("Server started on http://localhost:" .. self.config.port)
 
   while true do
     local poll_count = poll(fds, nfds, -1)
