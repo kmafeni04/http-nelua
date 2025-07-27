@@ -35,14 +35,9 @@ return {
       repo = "https://github.com/kmafeni04/map-nelua",
       version = "#4572efa8784fcce5763073007852573fb578fbdd",
     },
-    {
-      name = "dotenv-nelua",
-      repo = "https://github.com/kmafeni04/dotenv-nelua",
-      version = "#c1d05bea418212197b9bb2a9fb7d9fe8ca50e342",
-    },
   },
   scripts = {
     test = "nelua --cc=tcc test.nelua",
-    docs = "nelua nttp-doc.nelua",
+    docs = "nelua --cc=tcc nttp-doc.nelua",
   },
 }

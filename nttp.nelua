@@ -19,7 +19,6 @@ local json = require "json"
 
 local crypt = require ".libs.crypt"
 local send_request = require ".libs.send_request"
-local mail = require ".libs.mail"
 local utils = require ".libs.utils"
 local logger = require ".libs.logger"
 
@@ -37,11 +36,6 @@ local nttp.json = json
 --- See [send_request.nelua](#send_requestnelua)
 ---`
 local nttp.send_request = send_request
----`
---- #### nttp.mail
---- See [mail.nelua](#mailnelua)
----`
-local nttp.mail = mail
 ---`
 --- #### nttp.utils
 --- See [utils.nelua](#utilsnelua)

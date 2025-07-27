@@ -69,14 +69,6 @@ See [send_request.nelua](#send_requestnelua)
 local nttp.send_request = send_request
 ```
 
-#### nttp.mail
-
-See [mail.nelua](#mailnelua)
-
-```lua
-local nttp.mail = mail
-```
-
 #### nttp.utils
 
 See [utils.nelua](#utilsnelua)
@@ -910,10 +902,6 @@ print(utils.trim_wspace("   hello   "))
 ```lua
 function utils.trim_wspace(s: string)
 ```
-
-### mail.nelua
-
-Docs in progress
 
 ---
   
