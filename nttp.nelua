@@ -12,10 +12,10 @@ require ".thirdparty.socket"
 require ".thirdparty.unistd"
 require ".thirdparty.poll"
 
-require "map"
+require "map-nelua.map"
 
-local AnsiColor = require "ansicolor"
-local json = require "json"
+local AnsiColor = require "ansicolor-nelua.ansicolor"
+local json = require "json-nelua.json"
 
 local crypt = require ".libs.crypt"
 local send_request = require ".libs.send_request"
