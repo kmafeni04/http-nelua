@@ -35,6 +35,11 @@ return {
       repo = "https://github.com/kmafeni04/map-nelua",
       version = "#4572efa8784fcce5763073007852573fb578fbdd",
     },
+    {
+      name = "variant-nelua",
+      repo = "https://github.com/kmafeni04/variant-nelua",
+      version = "#c1dbeb2a1daa86d88a38deb24416b66149161e65",
+    },
   },
   scripts = {
     test = "nelua --cc=tcc test.nelua",

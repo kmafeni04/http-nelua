@@ -1,0 +1,20 @@
+local nttp = require "..nttp"
+local Option = nttp.variant.Option
+
+do
+  local app = nttp.Server.new({
+    log = nttp.TriBool.FALSE
+  })
+
+  app:before_filter(function(self: *nttp.Server)
+    return Option.Some(self:text(nttp.Status.OK, "should see"))
+  end)
+
+  app:get(nil, "/", function(self: *nttp.Server): nttp.Response
+    return self:text(nttp.Status.InternalServerError, "should not see")
+  end)
+
+  local resp, req_str = app:mock_request("/", { method = "GET" })
+  assert(resp.status == 200)
+  assert(resp.body == "should see")
+end

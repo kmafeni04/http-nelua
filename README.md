@@ -61,6 +61,14 @@ See [json-nelua](https://github.com/kmafeni04/json-nelua)
 local nttp.json = json
 ```
 
+#### nttp.variant
+
+See [variant-nelua](https://github.com/kmafeni04/variant-nelua)
+
+```lua
+local nttp.variant = variant
+```
+
 #### nttp.send_request
 
 See [send_request.nelua](#send_requestnelua)
@@ -87,7 +95,7 @@ local nttp.Status = @enum{
   SwitchingProtocols = 101,
   Processing = 102,
   EarlyHints = 103,
-  
+
   OK = 200,
   Created = 201,
   Accepted = 202,
@@ -98,7 +106,7 @@ local nttp.Status = @enum{
   MultiStatus = 207,
   AlreadyReported = 208,
   IMUsed = 226,
-  
+
   MultipleChoices = 300,
   MovedPermanently = 301,
   Found = 302,
@@ -204,7 +212,7 @@ This function converts your response into a nttp request string
 ```lua
 app:get(nil, "/test", function(self: *nttp.Server)
   local resp = self:text(200, "ok")
-  print(resp:tostring()) -- "http/1.1 200 OK\r\nServer: nttp\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
+  print(resp:tostring()) -- "HTTP/1.1 200 OK\r\nServer: nttp\r\nDate: Thu, 17 Apr 2025 19:23:00 GMT\r\nContent-type: text/plain\r\nContent-Length: 4\r\n\r\nok\r\n"
   return resp
 end)
 ```
@@ -355,7 +363,7 @@ local nttp.Config = @record{
 Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#nttpserverbefore_filter)
 
 ```lua
-local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
+local nttp.BeforeFn = @function(self: *nttp.Server): Option(nttp.Response)
 ```
 
 #### nttp.ActionFn
@@ -907,7 +915,7 @@ function utils.trim_wspace(s: string)
 
 ## Extras
 Extra libraries attached to this
-- [datastar-sdk](https://github.com/kmafeni04/nttp-datastar-sdk): SDK for [datastar.js](https://data-star.dev)  
+- [datastar-sdk](https://github.com/kmafeni04/nttp-datastar-sdk): SDK for [datastar.js](https://data-star.dev)
 - [mail](https://github.com/kmafeni04/nttp-mail): SMTP library
 
 ## Acknowledgement

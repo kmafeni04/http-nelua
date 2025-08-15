@@ -1,4 +1,4 @@
-local ssdg = require "ssdg"
+local ssdg = require "ssdg.ssdg"
 
 local gen = ssdg.new{
   lang = "lua",
@@ -71,7 +71,7 @@ gen:add([[
 
 ## Extras
 Extra libraries attached to this
-- [datastar-sdk](https://github.com/kmafeni04/nttp-datastar-sdk): SDK for [datastar.js](https://data-star.dev)  
+- [datastar-sdk](https://github.com/kmafeni04/nttp-datastar-sdk): SDK for [datastar.js](https://data-star.dev)
 - [mail](https://github.com/kmafeni04/nttp-mail): SMTP library
 
 ## Acknowledgement

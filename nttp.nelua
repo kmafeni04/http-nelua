@@ -1,3 +1,5 @@
+-- FIX: session vals don't work when they contain `-` e.g 'reset-email'
+
 --- ### nttp.nelua
 
 require "C.string"
@@ -13,6 +15,9 @@ require ".thirdparty.unistd"
 require ".thirdparty.poll"
 
 require "map-nelua.map"
+
+local variant = require "variant-nelua.variant"
+local Option = variant.Option
 
 local AnsiColor = require "ansicolor-nelua.ansicolor"
 local json = require "json-nelua.json"
@@ -32,6 +37,13 @@ local nttp = @record{}
 ---`
 local nttp.json = json
 ---`
+
+--- #### nttp.variant
+--- See [variant-nelua](https://github.com/kmafeni04/variant-nelua)
+---`
+local nttp.variant = variant
+---`
+
 --- #### nttp.send_request
 --- See [send_request.nelua](#send_requestnelua)
 ---`
@@ -51,7 +63,7 @@ local nttp.Status = @enum{
   SwitchingProtocols = 101,
   Processing = 102,
   EarlyHints = 103,
-  
+
   OK = 200,
   Created = 201,
   Accepted = 202,
@@ -62,7 +74,7 @@ local nttp.Status = @enum{
   MultiStatus = 207,
   AlreadyReported = 208,
   IMUsed = 226,
-  
+
   MultipleChoices = 300,
   MovedPermanently = 301,
   Found = 302,
@@ -258,7 +270,7 @@ local nttp.TriBool= @enum{
 }
 ---`
 
---- #### nttp.Cookie 
+--- #### nttp.Cookie
 ---`
 local nttp.Cookie = @record{
   name: string,
@@ -332,7 +344,7 @@ function nttp.Response:tostring(): string
     end
   end
   for _, v in ipairs(self.cookies) do
-    if v.name ~= "" or v.val ~= "" then 
+    if v.name ~= "" or v.val ~= "" then
       sb:write(("Set-Cookie: %s=%s"):format(v.name, v.val))
       if v.path ~= "" then
         sb:write(("; Path=%s"):format(v.path))
@@ -538,7 +550,7 @@ local nttp.Config = @record{
 --- #### nttp.BeforeFn
 --- Type Alias describing the function signature of before functions called in the [nttp.Server:before_filter](#nttpserverbefore_filter)
 ---`
-local nttp.BeforeFn = @function(self: *nttp.Server): (boolean, nttp.Response)
+local nttp.BeforeFn = @function(self: *nttp.Server): Option(nttp.Response)
 ---`
 
 --- #### nttp.ActionFn
@@ -1054,7 +1066,7 @@ local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Resp
       for _, vals in decoded_vals:gmatch("([%w_]+)=([^;]+);") do
         self.session.vals[vals[0]] = vals[1]
       end
-    end 
+    end
   end
 
   local resp: nttp.Response
@@ -1066,8 +1078,8 @@ local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Resp
         sb:write(("%s=%s; "):format(k, v))
       end
       sb:rollback(1)
-      local session_map = nttp.utils.b64_encode(sb:promote()) 
-      local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map)) 
+      local session_map = nttp.utils.b64_encode(sb:promote())
+      local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map))
       resp:set_cookie({
         name = self.config.session_name,
         val = val
@@ -1077,18 +1089,18 @@ local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Resp
   end
 
   for _, fn in ipairs(self.before_funcs) do
-    local stop, early_resp = fn(self)
-    if stop then
-      resp = early_resp
+    local early_resp = fn(self)
+    if early_resp:is_some() then
+      resp = early_resp:get_some()
       send_session(self, &resp)
       return resp
     end
   end
-  if self.routes:has(uri) and self.routes[uri].methods:has(method) then 
+  if self.routes:has(uri) and self.routes[uri].methods:has(method) then
     resp = self.routes[uri].methods[method](self)
     send_session(self, &resp)
   elseif uri:match("^/".. self.static_name .. ".*") then
-    local ext_match, ext_seq = uri:match("^.+%.(.+)$") 
+    local ext_match, ext_seq = uri:match("^.+%.(.+)$")
     local ext: string
     local err: boolean
     if ext_match then
@@ -1257,7 +1269,7 @@ function nttp.Server:serve()
           buffer[bytes] = 0
           local str: string = &buffer
           self._fd = fds[i].fd
-          
+
           local resp = handle_request(str, self)
 
           if not self.written then
@@ -1350,8 +1362,8 @@ function nttp.Server:mock_request(path: string, opts: nttp.MockRequestOpts): (nt
       session_sb:write(("%s=%s; "):format(k, v))
     end
     session_sb:rollback(1)
-    local session_map = nttp.utils.b64_encode(session_sb:promote()) 
-    local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map)) 
+    local session_map = nttp.utils.b64_encode(session_sb:promote())
+    local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map))
     sb:writef("%s=%s;", self.config.session_name, val)
     if not next(opts.cookies) then
       sb:rollback(1)
