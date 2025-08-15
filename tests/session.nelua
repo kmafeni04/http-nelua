@@ -4,29 +4,23 @@ do
   local app = nttp.Server.new({
     log = nttp.TriBool.FALSE
   })
-  app:get(nil, "/", function(self: *nttp.Server)
-    self.session:set_val("name", "james")
-    self.session:set_val("age", "10")
-    
-    return self:text(200, "ok")
-  end)
 
-  app:get(nil, "/test", function(self: *nttp.Server)
+  app:get(nil, "/", function(self: *nttp.Server)
     local name = self.session:get_val("name")
     local age = self.session:get_val("age")
+    local home_town = self.session:get_val("home-town")
     assert(name == "james")
     assert(age == "10")
+    assert(home_town == "new york")
 
     return self:text(200, "ok")
   end)
 
-  
-  app:mock_request("/")
-
-  app:mock_request("/test", {
+  app:mock_request("/", {
     session_vals = map!(string, string, {
       name = "james",
-      age = "10"
+      age = "10",
+      ["home-town"] = "new york"
     })
   })
 end
@@ -36,7 +30,7 @@ do
     log = nttp.TriBool.FALSE
   })
 
-  app:get(nil, "/test", function(self: *nttp.Server)
+  app:get(nil, "/", function(self: *nttp.Server)
     local name = self.session:get_val("name")
     local age = self.session:get_val("age")
     assert(name == "")
@@ -45,6 +39,5 @@ do
     return self:text(200, "ok")
   end)
 
-  
   app:mock_request("/")
 end

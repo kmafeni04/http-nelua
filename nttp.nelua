@@ -1,4 +1,4 @@
--- FIX: session vals don't work when they contain `-` e.g 'reset-email'
+-- TODO: Rearrange api examples to come after function definition in README
 
 --- ### nttp.nelua
 
@@ -49,6 +49,7 @@ local nttp.variant = variant
 ---`
 local nttp.send_request = send_request
 ---`
+
 --- #### nttp.utils
 --- See [utils.nelua](#utilsnelua)
 ---`
@@ -1059,11 +1060,11 @@ local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Resp
   self.session.vals = {}
   local cookie, err = self.req:get_cookie(self.config.session_name)
   if cookie ~= "" then
-    local match, match_seq = cookie:match("(.+)///(.+)")
+    local matched, match_seq = cookie:match("(.+)///(.+)")
     local signature = nttp.utils.b64_decode(match_seq[2])
     if signature == nttp.utils.sign(self.config.secret, match_seq[1]) then
-    local decoded_vals = nttp.utils.b64_decode(match_seq[1])
-      for _, vals in decoded_vals:gmatch("([%w_]+)=([^;]+);") do
+      local decoded_vals = nttp.utils.b64_decode(match_seq[1])
+      for _, vals in decoded_vals:gmatch("%s*([^=]+)=([^;]+);") do
         self.session.vals[vals[0]] = vals[1]
       end
     end
@@ -1362,7 +1363,8 @@ function nttp.Server:mock_request(path: string, opts: nttp.MockRequestOpts): (nt
       session_sb:write(("%s=%s; "):format(k, v))
     end
     session_sb:rollback(1)
-    local session_map = nttp.utils.b64_encode(session_sb:promote())
+    local session_str = session_sb:promote()
+    local session_map = nttp.utils.b64_encode(session_str)
     local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map))
     sb:writef("%s=%s;", self.config.session_name, val)
     if not next(opts.cookies) then
