@@ -506,12 +506,12 @@ This adds functions that will run before every request
 The [nttp.BeforeFn](#nttpbeforefn) returns a boolean and a [nttp.Response](#nttpresponse), if the boolean is `true`, it will return the response instead of the hit route
 
 ```lua
-app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
+app:before_filter(function(self: *nttp.Server): Option(nttp.Response)
   self.session:set_val("val", "test")
   if self.req.current_path ~= self:url_for("test") and self.session:get_val("val") == "test" then
-    return true, self:redirect("/test")
+    return Option.Some(self:redirect("/test"))
   end
-  return false, {}
+  return Option.None()
 end)
 ```
 
@@ -664,9 +664,9 @@ This function generates a csrf token that is stored in your session and returns 
 If a token already exists, it returns that and doesn't create a new one
 
 ```lua
-app:before_filter(function(self: *nttp.Server): (boolean, nttp.Response)
+app:before_filter(function(self: *nttp.Server): Option(nttp.Response)
   local token = nttp.csrf.generate_token(self)
-  return false, {}
+  return Option.None()
 end)
 ```
 
