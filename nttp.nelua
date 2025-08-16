@@ -1269,22 +1269,26 @@ function nttp.Server:serve()
         else
           buffer[bytes] = 0
           local str: string = &buffer
-          self._fd = fds[i].fd
+          local server = new(nttp.Server)
+          memory.copy(server, self, #nttp.Server)
 
-          local resp = handle_request(str, self)
+          server._fd = fds[i].fd
 
-          if not self.written then
-            local err = self:write(resp:tostring())
-            self.written = err == ""
+          local resp = handle_request(str, server)
+
+          if not server.written then
+            local err = server:write(resp:tostring())
+            server.written = err == ""
           end
-          logger.log(self.config.log, ("[%s] %s %s"):format(
+          logger.log(server.config.log, ("[%s] %s %s"):format(
             color_status(resp.status),
-            AnsiColor.new(("%s %s"):format(self.req.method, self.req.current_path)):Cyan():Bright():tostring(),
-            self.req.version)
+            AnsiColor.new(("%s %s"):format(server.req.method, server.req.current_path)):Cyan():Bright():tostring(),
+            server.req.version)
           )
-          self.written = false
-          close(self._fd)
-          self._fd = -1
+          server.written = false
+          close(server._fd)
+          server._fd = -1
+          delete(server)
           resp:destroy()
         end
         poll_count = poll_count - 1
