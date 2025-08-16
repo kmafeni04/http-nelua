@@ -1025,6 +1025,7 @@ local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Resp
     end
   end
   -- request body params
+  print(buffer_str)
   local body_match, body_seq = buffer_str:match("\r\n\r\n(.+)")
   if body_match then
     self.req.body = body_seq[1]
