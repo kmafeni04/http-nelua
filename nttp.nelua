@@ -1261,7 +1261,7 @@ function nttp.Server:serve()
       end
 
       if (fds[i].revents & POLLIN == 1) then
-        local buffer: [8192]cchar
+        local buffer: [#[1000*1000*5]#]cchar -- very large buffer size
         local bytes = read(fds[i].fd, &buffer, #buffer - 1)
         if (bytes <= 0) then
           close(fds[i].fd)
