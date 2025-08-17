@@ -95,7 +95,8 @@ local SendResponse = @record{
 }
 ---`
 
-local BUFFER_SIZE <comptime> = 8192
+-- NOTE: If changed, remember to change other instances
+local BUFFER_SIZE <comptime> = 1000 * 1000 * 2 + 500 -- very large buffer size
 
 local function send_https(req: SendRequest, send_addr: SendAddress): (SendResponse, string)
   SSL_library_init()

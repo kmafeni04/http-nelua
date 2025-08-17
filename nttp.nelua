@@ -1175,6 +1175,8 @@ function nttp.Server:serve()
   local server_addr: sockaddr_in, client_addr: sockaddr_in
   local client_len: cuint = #sockaddr_in
   local MAX_CLIENTS <comptime> = 1024
+  -- NOTE: If changed, remember to change other instances
+  local BUFFER_SIZE <comptime> = 1000 * 1000 * 2 + 500 -- very large buffer size
 
   local general_allocator: GeneralAllocator
   local fds: *[0]pollfd = (@*[0]pollfd)(general_allocator:alloc(MAX_CLIENTS * #pollfd))
@@ -1193,7 +1195,7 @@ function nttp.Server:serve()
   local so_reuseaddr = 2
   setsockopt(listen_fd, sol_socket, so_reuseaddr, &opt, #integer)
 
-  C.memset(&server_addr, 0, #sockaddr_in)
+  memory.zero(&server_addr, #sockaddr_in)
   server_addr.sin_family = AF_INET
   server_addr.sin_addr.s_addr = htonl(inet_addr(self.config.bind_host))
   server_addr.sin_port = htons(self.config.port)
@@ -1261,7 +1263,7 @@ function nttp.Server:serve()
       end
 
       if (fds[i].revents & POLLIN == 1) then
-        local buffer: [#[1000*1000*5]#]cchar -- very large buffer size
+        local buffer: [BUFFER_SIZE]cchar
         local bytes = read(fds[i].fd, &buffer, #buffer - 1)
         if (bytes <= 0) then
           close(fds[i].fd)
