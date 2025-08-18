@@ -1083,7 +1083,10 @@ local function handle_request(buffer_str: string, self: *nttp.Server): nttp.Resp
       local val = session_map .. "///" .. nttp.utils.b64_encode(nttp.utils.sign(self.config.secret, session_map))
       resp:set_cookie({
         name = self.config.session_name,
-        val = val
+        val = val,
+        path = "/",
+        httpOnly = nttp.TriBool.TRUE,
+        secure = nttp.TriBool.TRUE,
       })
       self.session.send = false
     end
