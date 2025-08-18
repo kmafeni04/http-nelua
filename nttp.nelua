@@ -1186,7 +1186,7 @@ function nttp.Server:serve()
   listen_fd = socket(AF_INET, SOCK_STREAM, 0)
   if (listen_fd < 0) then
     local err_msg = C.strerror(C.errno)
-    io.stderr:write(err_msg .. "\n")
+    io.stderr:write("SOCKET: " .. err_msg .. "\n")
     os.exit(1)
   end
 
@@ -1202,14 +1202,14 @@ function nttp.Server:serve()
 
   if bind(listen_fd, (@*sockaddr)(&server_addr), #sockaddr_in) < 0 then
     local err_msg = C.strerror(C.errno)
-    io.stderr:write(err_msg .. "\n")
+    io.stderr:write("BIND: " .. err_msg .. "\n")
     os.exit(1)
   end
 
   local MAX_CONS <const> = 128
   if listen(listen_fd, MAX_CONS) < 0 then
     local err_msg = C.strerror(C.errno)
-    io.stderr:write(err_msg .. "\n")
+    io.stderr:write("LISTEN: " .. err_msg .. "\n")
     os.exit(1)
   end
 
@@ -1226,7 +1226,7 @@ function nttp.Server:serve()
     local poll_count = poll(fds, nfds, -1)
     if (poll_count < 0) then
       local err_msg = C.strerror(C.errno)
-      io.stderr:write(err_msg .. "\n")
+      io.stderr:write("POLL: " .. err_msg .. "\n")
       os.exit(1)
     end
 
@@ -1234,7 +1234,7 @@ function nttp.Server:serve()
       new_fd = accept(listen_fd, (@*sockaddr)(&client_addr), &client_len)
       if (new_fd < 0) then
         local err_msg = C.strerror(C.errno)
-        io.stderr:write(err_msg .. "\n")
+        io.stderr:write("ACCEPT: " .. err_msg .. "\n")
         continue
       end
       for i = 1, < MAX_CLIENTS do
@@ -1248,7 +1248,7 @@ function nttp.Server:serve()
         end
       end
       if (i == MAX_CLIENTS) then
-        io.stderr:write("Too many connections\n")
+        io.stderr:write("MAX_CLIENTS: Too many connections\n")
         close(new_fd)
       end
       poll_count = poll_count - 1
